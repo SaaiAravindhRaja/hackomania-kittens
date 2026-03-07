@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import AuthShell from "@/components/auth-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -7,30 +7,58 @@ import { Button } from "@/components/ui/button";
 import { Form, FormField, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getStoredUser, setStoredUser } from "@/lib/auth-session";
 
+const API_BASE = "/api";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function parseJsonSafe(response) {
+  return response.json().catch(() => null);
+}
+
 export default function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [values, setValues] = useState({
     email: "",
     password: "",
   });
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const authedUser = getStoredUser();
+    if (authedUser) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!location.state?.registered) return;
+
+    setValues((current) => ({
+      ...current,
+      email: location.state.email ?? current.email,
+    }));
+    setStatus({
+      variant: "default",
+      title: "Account created",
+      description: "Your account is ready. Log in to continue.",
+    });
+  }, [location.state]);
 
   const validate = () => {
     const nextErrors = {};
 
     if (!values.email.trim()) {
       nextErrors.email = "Email is required.";
-    } else if (!emailPattern.test(values.email)) {
+    } else if (!emailPattern.test(values.email.trim())) {
       nextErrors.email = "Enter a valid email address.";
     }
 
     if (!values.password) {
       nextErrors.password = "Password is required.";
-    } else if (values.password.length < 8) {
-      nextErrors.password = "Password must be at least 8 characters.";
     }
 
     return nextErrors;
@@ -54,7 +82,7 @@ export default function Login() {
     setStatus(null);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = validate();
     setErrors(nextErrors);
@@ -68,24 +96,67 @@ export default function Login() {
       return;
     }
 
-    setStatus({
-      variant: "default",
-      title: "Form validated",
-      description: "Connect your auth API to complete login.",
-    });
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: values.email.trim(),
+          password: values.password,
+        }),
+      });
+      const data = await parseJsonSafe(res);
+
+      if (!res.ok) {
+        const errorMessage = data?.error ?? "Login failed. Please try again.";
+
+        if (res.status === 401) {
+          setErrors({
+            email: " ",
+            password: errorMessage,
+          });
+        } else if (res.status === 400 && errorMessage.toLowerCase().includes("email")) {
+          setErrors((current) => ({ ...current, email: errorMessage }));
+        } else if (res.status === 400 && errorMessage.toLowerCase().includes("password")) {
+          setErrors((current) => ({ ...current, password: errorMessage }));
+        }
+
+        setStatus({
+          variant: "destructive",
+          title: "Login failed",
+          description: errorMessage,
+        });
+        return;
+      }
+
+      setStoredUser(data.user);
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setStatus({
+        variant: "destructive",
+        title: "Unable to reach server",
+        description: "Please check your connection and try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <AuthShell
       eyebrow="account login"
       title="Log in to Kitten Finance"
-      description="Use your email and password to access your workspace."
+      description="Use your registered email and password to access operational dashboards."
       footerLabel="New to Kitten Finance?"
       footerLinkLabel="Create an account"
       footerLinkTo="/register"
     >
       {status && (
-        <Alert variant={status.variant} className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}>
+        <Alert
+          variant={status.variant}
+          className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}
+        >
           <AlertTitle>{status.title}</AlertTitle>
           <AlertDescription>{status.description}</AlertDescription>
         </Alert>
@@ -130,14 +201,8 @@ export default function Login() {
           <FormMessage id="login-password-error">{errors.password ?? " "}</FormMessage>
         </FormField>
 
-        <div className="-mt-1 flex justify-end">
-          <Link to="/login" className="text-xs font-medium text-slate-500 transition-colors hover:text-slate-800">
-            Forgot password?
-          </Link>
-        </div>
-
-        <Button type="submit" className="h-11 w-full rounded-xl">
-          Log in
+        <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl">
+          {loading ? "Logging in..." : "Log in"}
         </Button>
       </Form>
     </AuthShell>

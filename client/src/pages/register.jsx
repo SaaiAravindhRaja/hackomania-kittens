@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import AuthShell from "@/components/auth-shell";
@@ -7,12 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Form, FormField, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getStoredUser } from "@/lib/auth-session";
 
-const API_BASE = "http://localhost:8009/api";
+const API_BASE = "/api";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordPattern = /^(?=.*\d).{8,}$/;
-const postalCodePattern = /^[0-9A-Za-z\s\-]{3,10}$/;
+const postalCodePattern = /^[0-9A-Za-z\s-]{3,10}$/;
 const walletPattern = /^\$[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/[a-zA-Z0-9._~-]+$/;
+
+function parseJsonSafe(response) {
+  return response.json().catch(() => null);
+}
 
 export default function Register() {
   const navigate = useNavigate();
@@ -29,6 +34,13 @@ export default function Register() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const authedUser = getStoredUser();
+    if (authedUser) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
+
   const validate = () => {
     const nextErrors = {};
 
@@ -40,7 +52,7 @@ export default function Register() {
 
     if (!values.email.trim()) {
       nextErrors.email = "Email is required.";
-    } else if (!emailPattern.test(values.email)) {
+    } else if (!emailPattern.test(values.email.trim())) {
       nextErrors.email = "Enter a valid email address.";
     }
 
@@ -50,13 +62,13 @@ export default function Register() {
 
     if (!values.postalcode.trim()) {
       nextErrors.postalcode = "Postal code is required.";
-    } else if (!postalCodePattern.test(values.postalcode)) {
+    } else if (!postalCodePattern.test(values.postalcode.trim())) {
       nextErrors.postalcode = "Enter a valid postal code.";
     }
 
     if (!values.walletAddress.trim()) {
       nextErrors.walletAddress = "Wallet address is required.";
-    } else if (!walletPattern.test(values.walletAddress)) {
+    } else if (!walletPattern.test(values.walletAddress.trim())) {
       nextErrors.walletAddress = "Enter a valid Interledger wallet address (e.g. $ilp.interledger-test.dev/username).";
     }
 
@@ -111,29 +123,50 @@ export default function Register() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: values.name,
-          email: values.email,
+          username: values.name.trim(),
+          email: values.email.trim(),
           password: values.password,
-          country: values.country,
-          postalcode: values.postalcode,
-          walletAddress: values.walletAddress,
+          country: values.country.trim(),
+          postalcode: values.postalcode.trim(),
+          walletAddress: values.walletAddress.trim(),
         }),
       });
 
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
+        const errorMessage = data?.error ?? "Something went wrong.";
+        const lowerError = errorMessage.toLowerCase();
+
+        if (res.status === 409 || lowerError.includes("already registered")) {
+          setErrors((current) => ({
+            ...current,
+            email: "An account with this email already exists.",
+          }));
+        } else if (lowerError.includes("email")) {
+          setErrors((current) => ({ ...current, email: errorMessage }));
+        } else if (lowerError.includes("password")) {
+          setErrors((current) => ({ ...current, password: errorMessage }));
+        } else if (lowerError.includes("postal")) {
+          setErrors((current) => ({ ...current, postalcode: errorMessage }));
+        } else if (lowerError.includes("wallet")) {
+          setErrors((current) => ({ ...current, walletAddress: errorMessage }));
+        } else if (lowerError.includes("country")) {
+          setErrors((current) => ({ ...current, country: errorMessage }));
+        } else if (lowerError.includes("name")) {
+          setErrors((current) => ({ ...current, name: errorMessage }));
+        }
+
         setStatus({
           variant: "destructive",
           title: "Registration failed",
-          description: data.error ?? "Something went wrong.",
+          description: errorMessage,
         });
         return;
       }
 
-      // Account created — redirect to login
       navigate("/login", {
-        state: { registered: true, email: values.email },
+        state: { registered: true, email: values.email.trim() },
       });
     } catch (err) {
       setStatus({
@@ -150,7 +183,7 @@ export default function Register() {
     <AuthShell
       eyebrow="account onboarding"
       title="Create your account"
-      description="Set up secure access to your Kitten Finance workspace."
+      description="Set up secure access to your finance and response operations workspace."
       footerLabel="Already have an account?"
       footerLinkLabel="Log in"
       footerLinkTo="/login"
@@ -167,7 +200,9 @@ export default function Register() {
 
       <Form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <FormField>
-          <Label htmlFor="name" className="text-slate-700">Full name</Label>
+          <Label htmlFor="name" className="text-slate-700">
+            Full name
+          </Label>
           <Input
             id="name"
             name="name"
@@ -183,7 +218,9 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="email" className="text-slate-700">Email</Label>
+          <Label htmlFor="email" className="text-slate-700">
+            Email
+          </Label>
           <Input
             id="email"
             name="email"
@@ -200,7 +237,9 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="country" className="text-slate-700">Country</Label>
+          <Label htmlFor="country" className="text-slate-700">
+            Country
+          </Label>
           <Input
             id="country"
             name="country"
@@ -216,7 +255,9 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="postalcode" className="text-slate-700">Postal code</Label>
+          <Label htmlFor="postalcode" className="text-slate-700">
+            Postal code
+          </Label>
           <Input
             id="postalcode"
             name="postalcode"
@@ -232,7 +273,9 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="walletAddress" className="text-slate-700">Interledger Wallet Address</Label>
+          <Label htmlFor="walletAddress" className="text-slate-700">
+            Interledger Wallet Address
+          </Label>
           <Input
             id="walletAddress"
             name="walletAddress"
@@ -248,7 +291,9 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="password" className="text-slate-700">Password</Label>
+          <Label htmlFor="password" className="text-slate-700">
+            Password
+          </Label>
           <Input
             id="password"
             name="password"
@@ -265,7 +310,9 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="confirmPassword" className="text-slate-700">Confirm password</Label>
+          <Label htmlFor="confirmPassword" className="text-slate-700">
+            Confirm password
+          </Label>
           <Input
             id="confirmPassword"
             name="confirmPassword"
@@ -282,7 +329,7 @@ export default function Register() {
         </FormField>
 
         <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl">
-          {loading ? "Creating account…" : "Create account"}
+          {loading ? "Creating account..." : "Create account"}
         </Button>
 
         <p className="text-center text-xs text-slate-500">
