@@ -1,210 +1,111 @@
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/use-auth'
+import AuthShell from '@/components/auth-shell'
+import { Loader2 } from 'lucide-react'
 
-import AuthShell from "@/components/auth-shell";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Form, FormField, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { getStoredUser, setStoredUser } from "@/lib/auth-session";
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const API_BASE = "/api";
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function parseJsonSafe(response) {
-  return response.json().catch(() => null);
+function Field({ label, error, children }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium uppercase tracking-[0.1em] text-slate-400">
+        {label}
+      </label>
+      {children}
+      <p className="min-h-[16px] text-xs text-red-400">{error || ''}</p>
+    </div>
+  )
 }
 
 export default function Login() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [values, setValues] = useState({
-    email: "",
-    password: "",
-  });
-  const [errors, setErrors] = useState({});
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const authedUser = getStoredUser();
-    if (authedUser) {
-      navigate("/", { replace: true });
-    }
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!location.state?.registered) return;
-
-    setValues((current) => ({
-      ...current,
-      email: location.state.email ?? current.email,
-    }));
-    setStatus({
-      variant: "default",
-      title: "Account created",
-      description: "Your account is ready. Log in to continue.",
-    });
-  }, [location.state]);
+  const navigate = useNavigate()
+  const { login } = useAuth()
+  const [values, setValues] = useState({ email: '', password: '' })
+  const [errors, setErrors] = useState({})
+  const [globalError, setGlobalError] = useState(null)
+  const [loading, setLoading] = useState(false)
 
   const validate = () => {
-    const nextErrors = {};
+    const e = {}
+    if (!values.email.trim()) e.email = 'Email is required.'
+    else if (!emailPattern.test(values.email)) e.email = 'Enter a valid email.'
+    if (!values.password) e.password = 'Password is required.'
+    return e
+  }
 
-    if (!values.email.trim()) {
-      nextErrors.email = "Email is required.";
-    } else if (!emailPattern.test(values.email.trim())) {
-      nextErrors.email = "Enter a valid email address.";
-    }
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setValues(c => ({ ...c, [name]: value }))
+    setErrors(c => { const n = { ...c }; delete n[name]; return n })
+    setGlobalError(null)
+  }
 
-    if (!values.password) {
-      nextErrors.password = "Password is required.";
-    }
-
-    return nextErrors;
-  };
-
-  const clearFieldError = (name) => {
-    setErrors((current) => {
-      if (!current[name]) {
-        return current;
-      }
-      const nextErrors = { ...current };
-      delete nextErrors[name];
-      return nextErrors;
-    });
-  };
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setValues((current) => ({ ...current, [name]: value }));
-    clearFieldError(name);
-    setStatus(null);
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const nextErrors = validate();
-    setErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) {
-      setStatus({
-        variant: "destructive",
-        title: "Unable to sign in",
-        description: "Fix the highlighted fields and try again.",
-      });
-      return;
-    }
-
-    setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const errs = validate()
+    setErrors(errs)
+    if (Object.keys(errs).length > 0) return
+    setLoading(true)
+    setGlobalError(null)
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: values.email.trim(),
-          password: values.password,
-        }),
-      });
-      const data = await parseJsonSafe(res);
-
-      if (!res.ok) {
-        const errorMessage = data?.error ?? "Login failed. Please try again.";
-
-        if (res.status === 401) {
-          setErrors({
-            email: " ",
-            password: errorMessage,
-          });
-        } else if (res.status === 400 && errorMessage.toLowerCase().includes("email")) {
-          setErrors((current) => ({ ...current, email: errorMessage }));
-        } else if (res.status === 400 && errorMessage.toLowerCase().includes("password")) {
-          setErrors((current) => ({ ...current, password: errorMessage }));
-        }
-
-        setStatus({
-          variant: "destructive",
-          title: "Login failed",
-          description: errorMessage,
-        });
-        return;
-      }
-
-      setStoredUser(data.user);
-      navigate("/", { replace: true });
+      await login(values.email, values.password)
+      navigate('/dashboard')
     } catch (err) {
-      setStatus({
-        variant: "destructive",
-        title: "Unable to reach server",
-        description: "Please check your connection and try again.",
-      });
+      setGlobalError(err.message || 'Invalid email or password.')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
+
+  const inputCls = "w-full rounded-xl border border-slate-700/80 bg-slate-800/50 px-4 py-3 text-sm text-white placeholder-slate-600 transition-colors focus:border-emerald-500/70 focus:bg-slate-800 focus:outline-none"
 
   return (
     <AuthShell
       eyebrow="account login"
-      title="Log in to Kitten Finance"
-      description="Use your registered email and password to access operational dashboards."
+      title="Welcome back."
+      description="Sign in to manage your emergency funds."
       footerLabel="New to Kitten Finance?"
       footerLinkLabel="Create an account"
       footerLinkTo="/register"
     >
-      {status && (
-        <Alert
-          variant={status.variant}
-          className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}
-        >
-          <AlertTitle>{status.title}</AlertTitle>
-          <AlertDescription>{status.description}</AlertDescription>
-        </Alert>
+      {globalError && (
+        <div className="mb-4 rounded-xl border border-red-800/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+          {globalError}
+        </div>
       )}
 
-      <Form className="space-y-4" onSubmit={handleSubmit} noValidate>
-        <FormField>
-          <Label htmlFor="email" className="text-slate-700">
-            Email
-          </Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="name@company.com"
-            value={values.email}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby="login-email-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
+      <form className="space-y-1" onSubmit={handleSubmit} noValidate>
+        <Field label="Email" error={errors.email}>
+          <input
+            id="email" name="email" type="email" autoComplete="email"
+            placeholder="you@example.com"
+            value={values.email} onChange={handleChange}
+            className={inputCls}
           />
-          <FormMessage id="login-email-error">{errors.email ?? " "}</FormMessage>
-        </FormField>
+        </Field>
 
-        <FormField>
-          <Label htmlFor="password" className="text-slate-700">
-            Password
-          </Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            value={values.password}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.password)}
-            aria-describedby="login-password-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
+        <Field label="Password" error={errors.password}>
+          <input
+            id="password" name="password" type="password" autoComplete="current-password"
+            placeholder="Your password"
+            value={values.password} onChange={handleChange}
+            className={inputCls}
           />
-          <FormMessage id="login-password-error">{errors.password ?? " "}</FormMessage>
-        </FormField>
+        </Field>
 
-        <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl">
-          {loading ? "Logging in..." : "Log in"}
-        </Button>
-      </Form>
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-500 hover:shadow-[0_0_24px_rgba(52,211,153,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Signing in...</>
+            ) : 'Log in'}
+          </button>
+        </div>
+      </form>
     </AuthShell>
-  );
+  )
 }

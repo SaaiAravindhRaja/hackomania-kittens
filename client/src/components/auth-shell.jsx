@@ -1,17 +1,6 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { CheckCircle2, LockKeyhole, ShieldCheck } from "lucide-react";
-
-import SiteFooter from "@/components/site-footer";
-import SiteNavbar from "@/components/site-navbar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { clearStoredUser, getStoredUser } from "@/lib/auth-session";
-
-const highlights = [
-  { icon: ShieldCheck, text: "Verification-first account onboarding" },
-  { icon: LockKeyhole, text: "Secure access for finance operations teams" },
-  { icon: CheckCircle2, text: "Clear records for trust and accountability" },
-];
+import React from "react"
+import { Link } from "react-router-dom"
+import { Activity } from "lucide-react"
 
 export default function AuthShell({
   title,
@@ -22,67 +11,89 @@ export default function AuthShell({
   footerLinkTo,
   children,
 }) {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(() => getStoredUser());
-
-  const handleLogout = () => {
-    clearStoredUser();
-    setUser(null);
-    navigate("/", { replace: true });
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <SiteNavbar user={user} onLogout={handleLogout} />
+    <main className="grain-overlay relative min-h-screen bg-[#070a0d] text-white">
+      {/* Ambient glows */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute left-[25%] top-[35%] h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/[0.07] blur-[130px]" />
+        <div className="absolute right-[15%] bottom-[25%] h-[400px] w-[400px] rounded-full bg-sky-600/[0.04] blur-[110px]" />
+        <div className="absolute right-[40%] top-[10%] h-[200px] w-[200px] rounded-full bg-emerald-400/[0.03] blur-[70px]" />
+      </div>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_460px] lg:px-8">
-        <section className="hidden rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-8 shadow-sm lg:block">
-          <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">Kitten Finance Platform</p>
-          <h1 className="mt-3 text-3xl leading-tight font-semibold tracking-tight text-slate-900">
-            Manage trusted donation and relief workflows from one secure workspace.
-          </h1>
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-600">
-            Built for teams that need clear accountability, structured operational controls, and readiness when response
-            funding needs to move quickly.
-          </p>
+      {/* Grid lines */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.015]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+          backgroundSize: "80px 80px",
+        }}
+      />
 
-          <div className="mt-8 space-y-4">
-            {highlights.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.text} className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <div className="inline-flex size-8 items-center justify-center rounded-md bg-slate-100 text-slate-700">
-                    <Icon className="size-4" />
-                  </div>
-                  <p className="pt-1 text-sm text-slate-700">{item.text}</p>
-                </div>
-              );
-            })}
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="w-full max-w-[420px]">
+          {/* Top nav */}
+          <div className="mb-8 flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <img
+                src="/logo.jpeg"
+                alt="Kitten Finance"
+                className="h-7 w-7 rounded-full object-cover ring-1 ring-slate-700 transition-all group-hover:ring-emerald-500/50"
+              />
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 group-hover:text-slate-200 transition-colors">
+                kitten finance
+              </span>
+            </Link>
+            <Link
+              to="/"
+              className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-600 hover:text-slate-300 transition-colors"
+            >
+              ← home
+            </Link>
           </div>
-        </section>
 
-        <section>
-          <Card className="border-slate-200/90 bg-white shadow-xl shadow-slate-900/5">
-            <CardHeader className="gap-2 border-b border-slate-100 pb-5">
-              <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-500 uppercase">{eyebrow}</p>
-              <CardTitle className="text-2xl tracking-tight text-slate-900">{title}</CardTitle>
-              <CardDescription className="text-slate-500">{description}</CardDescription>
-            </CardHeader>
+          {/* Card */}
+          <div className="overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/50 shadow-2xl shadow-black/40 backdrop-blur-sm">
+            {/* Card header */}
+            <div className="border-b border-slate-800/80 px-8 pb-6 pt-8">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-800/40 bg-emerald-500/[0.06] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400">
+                  <Activity className="h-2.5 w-2.5" />
+                  {eyebrow}
+                </span>
+              </div>
+              <h1 className="text-display italic text-3xl leading-tight text-slate-100">
+                {title}
+              </h1>
+              {description && (
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{description}</p>
+              )}
+            </div>
 
-            <CardContent className="space-y-6 pt-6">
+            {/* Card body */}
+            <div className="px-8 pb-8 pt-6">
               {children}
-              <p className="text-center text-sm text-slate-500">
-                {footerLabel}{" "}
-                <Link to={footerLinkTo} className="font-semibold text-slate-800 transition-colors hover:text-slate-900">
-                  {footerLinkLabel}
-                </Link>
-              </p>
-            </CardContent>
-          </Card>
-        </section>
-      </main>
 
-      <SiteFooter />
-    </div>
-  );
+              {(footerLabel || footerLinkLabel) && (
+                <p className="mt-6 text-center text-sm text-slate-600">
+                  {footerLabel}{" "}
+                  <Link
+                    to={footerLinkTo}
+                    className="font-semibold text-emerald-400 transition-colors hover:text-emerald-300"
+                  >
+                    {footerLinkLabel}
+                  </Link>
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <p className="mt-8 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-slate-700">
+            Powered by Interledger Open Payments
+          </p>
+        </div>
+      </div>
+    </main>
+  )
 }
