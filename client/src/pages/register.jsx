@@ -14,6 +14,8 @@ export default function Register() {
   const [values, setValues] = useState({
     name: "",
     email: "",
+    country: "",
+    postalcode: "",
     password: "",
     confirmPassword: "",
   });
@@ -33,6 +35,18 @@ export default function Register() {
       nextErrors.email = "Email is required.";
     } else if (!emailPattern.test(values.email)) {
       nextErrors.email = "Enter a valid email address.";
+    }
+
+    if (!values.country.trim()) {
+      nextErrors.country = "Country is required.";
+    } else if (!values.country.test(values.country)) {
+      nextErrors.country = "Enter a valid country"
+    }
+
+    if (!values.postalcode.trim()) {
+      nextErrors.postalcode = "Postal code is required.";
+    } else if (!values.postalcode.test(values.postalcode)) {
+      nextErrors.postalcode = "Enter a valid postalcode"
     }
 
     if (!values.password) {
@@ -141,6 +155,44 @@ export default function Register() {
             className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
           />
           <FormMessage id="register-email-error">{errors.email ?? " "}</FormMessage>
+        </FormField>
+
+        <FormField>
+          <Label htmlFor="country" className="text-slate-700">
+            Country
+          </Label>
+          <Input
+            id="country"
+            name="country"
+            autoComplete="country-name"
+            placeholder="Singapore"
+            value={values.country}
+            onChange={handleChange}
+            aria-invalid={Boolean(errors.country)}
+            aria-describedby="register-country-error"
+            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
+          />
+          <FormMessage id="register-country-error">{errors.country ?? " "}</FormMessage>
+        </FormField>
+
+        <FormField>
+          <Label htmlFor="postalcode" className="text-slate-700">
+            Postal code
+          </Label>
+          <Input
+            id="postalcode"
+            name="postalcode"
+            autoComplete="postal-code"
+            placeholder="123456"
+            value={values.postalcode}
+            onChange={handleChange}
+            aria-invalid={Boolean(errors.postalcode)}
+            aria-describedby="register-postalcode-error"
+            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
+          />
+          <FormMessage id="register-postalcode-error">
+            {errors.postalcode ?? " "}
+          </FormMessage>
         </FormField>
 
         <FormField>
