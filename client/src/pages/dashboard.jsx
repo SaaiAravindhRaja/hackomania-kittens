@@ -99,8 +99,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <div className="space-y-4">
-            <Card className="border-slate-200 bg-white shadow-sm">
+            <Card className="flex h-full flex-col border-slate-200 bg-white shadow-sm">
               <CardHeader className="gap-1">
                 <CardTitle>Account snapshot</CardTitle>
                 <CardDescription>Signed-in account details</CardDescription>
@@ -118,27 +117,13 @@ export default function Dashboard() {
                 <p>
                   <span className="font-semibold text-slate-800">Wallet:</span> {user.wallet_address ?? "-"}
                 </p>
-                <Button asChild variant="outline" className="mt-2 h-10 rounded-xl">
-                  <Link to="/wallet">Manage wallet</Link>
-                </Button>
+                <div className="mt-auto pt-2">
+                  <Button asChild variant="outline" className="h-10 w-full rounded-xl">
+                    <Link to="/wallet">Manage wallet</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-
-            <Card className="border-slate-900 bg-slate-900 text-slate-100 shadow-sm">
-              <CardHeader className="gap-1">
-                <CardTitle className="text-white">Next recommended actions</CardTitle>
-                <CardDescription className="text-slate-300">Suggested setup priorities for this week.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pb-6 text-sm text-slate-200">
-                <p>1. Review allocation limits for high-risk regions.</p>
-                <p>2. Keep your own wallet address up to date.</p>
-                <p>3. Export weekly donor impact summary.</p>
-                <Button asChild variant="outline" className="mt-2 h-10 rounded-xl border-slate-500 text-slate-100 hover:bg-slate-800">
-                  <Link to="/donation">Open donation flow</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
         </section>
       </main>
 
