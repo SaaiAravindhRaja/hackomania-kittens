@@ -160,8 +160,9 @@ async function getWallet(url) {
 r.get("/pay-single", async(req, res) => {
     // post request data
     let amount = '10000'; //note that amount is in cents
-    let metadata = {description: `Incoming donation of $${amount/10**2}`};
     const user_wallet_url = "https://ilp.interledger-test.dev/nice-donator";
+    
+    let metadata = {description: `Incoming donation of $${amount/10**2}`};
     try {
         const donorWallet = await getWallet(user_wallet_url);
         const fundManagerWallet = await getWallet(process.env.RECEIVER_WALLET_ADDRESS_URL);
@@ -262,9 +263,5 @@ r.get("/pay", async (req, res) => {
     //res.send("Success");
 });
 */
-
-r.get("/complete-recurring-payment/:uid", async (req, res) => {
-
-});
 
 export default r
