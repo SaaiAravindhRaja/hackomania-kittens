@@ -141,7 +141,9 @@ export default function WalletPage() {
   };
 
   const openApprovalModal = () => {
-    const initialIds = pendingPayouts.map((item) => item.interactionId);
+    const initialIds = pendingPayouts
+      .filter((item) => item?.userId === user?.user_id || item?.recipientWalletAddress === walletAddress)
+      .map((item) => item.interactionId);
     setSelectedInteractionIds(initialIds);
     setApprovalModalOpen(true);
   };
@@ -394,7 +396,7 @@ export default function WalletPage() {
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Pending payout approvals</h2>
                 <p className="text-sm text-slate-600">
-                  Select one or more recipients, then approve or reject in one flow.
+                  Select one or more of your own pending payouts to approve or reject.
                 </p>
               </div>
               <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" onClick={closeApprovalModal}>
@@ -407,7 +409,11 @@ export default function WalletPage() {
                 type="button"
                 variant="outline"
                 className="h-8 rounded-lg px-3 text-xs"
-                onClick={() => setSelectedInteractionIds(pendingPayouts.map((item) => item.interactionId))}
+                onClick={() => setSelectedInteractionIds(
+                  pendingPayouts
+                    .filter((item) => item?.userId === user?.user_id || item?.recipientWalletAddress === walletAddress)
+                    .map((item) => item.interactionId)
+                )}
               >
                 Select all
               </Button>
@@ -423,25 +429,37 @@ export default function WalletPage() {
 
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
               {pendingPayouts.map((item) => {
+                const isOwnPayout = item?.userId === user?.user_id || item?.recipientWalletAddress === walletAddress;
+                
+                // Hide payouts that belong to other recipients
+                if (!isOwnPayout) return null;
+
                 const checked = selectedInteractionIds.includes(item.interactionId);
                 return (
-                  <label
+                  <button
                     key={item.interactionId}
-                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                    type="button"
+                    onClick={() => toggleInteractionSelection(item.interactionId)}
+                    className={`flex w-full cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors ${
+                      checked 
+                        ? 'border-indigo-600 bg-indigo-50/50' 
+                        : 'border-slate-200 bg-slate-50 hover:border-indigo-200 hover:bg-slate-100'
+                    }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleInteractionSelection(item.interactionId)}
-                      className="mt-1"
-                    />
+                    <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'}`}>
+                      {checked && (
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      )}
+                    </div>
                     <div className="text-sm text-slate-700">
-                      <p className="font-semibold text-slate-900">{item?.username ?? "Recipient"} for {item?.eventTitle ?? "Event"}</p>
-                      <p>
+                      <p className={`font-semibold ${checked ? 'text-indigo-900' : 'text-slate-900'}`}>
+                        {item?.username ?? "Recipient"} for {item?.eventTitle ?? "Event"}
+                      </p>
+                      <p className={checked ? 'text-indigo-700/80' : 'text-slate-600'}>
                         Amount: ${item?.amountDollars ?? "-"} | Stage: {item?.stage ?? "-"}
                       </p>
                     </div>
-                  </label>
+                  </button>
                 );
               })}
             </div>
