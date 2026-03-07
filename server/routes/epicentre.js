@@ -1,6 +1,26 @@
 import { Router } from 'express'
 const router = Router()
 
+import { createClient } from '@clickhouse/client'
+
+
+const client = createClient({
+    url: 'https://p81nkgv2g0.ap-southeast-1.aws.clickhouse.cloud:8443',
+    username: 'cHY50BFRpIMYHrirXvbC',
+    password: '4b1dhDb3LW0hQCGEx0pF3R69VxrLi0NPCe2nNNZZMC',
+    database: 'default',
+});
+
+console.log(client);
+
+const result = await client.query({
+    query: 'SELECT 1',
+    format: 'JSONEachRow',
+});
+
+
+console.log(result);
+
 
 import haversine from 'haversine'
 
