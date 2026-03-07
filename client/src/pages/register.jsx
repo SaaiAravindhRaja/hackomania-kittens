@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import AuthShell from "@/components/auth-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -7,20 +8,26 @@ import { Form, FormField, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const API_BASE = "/api";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordPattern = /^(?=.*\d).{8,}$/;
+const postalCodePattern = /^[0-9A-Za-z\s\-]{3,10}$/;
+const walletPattern = /^\$[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/[a-zA-Z0-9._~-]+$/;
 
 export default function Register() {
+  const navigate = useNavigate();
   const [values, setValues] = useState({
     name: "",
     email: "",
     country: "",
     postalcode: "",
+    walletAddress: "",
     password: "",
     confirmPassword: "",
   });
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const nextErrors = {};
@@ -39,14 +46,18 @@ export default function Register() {
 
     if (!values.country.trim()) {
       nextErrors.country = "Country is required.";
-    } else if (!values.country.test(values.country)) {
-      nextErrors.country = "Enter a valid country"
     }
 
     if (!values.postalcode.trim()) {
       nextErrors.postalcode = "Postal code is required.";
-    } else if (!values.postalcode.test(values.postalcode)) {
-      nextErrors.postalcode = "Enter a valid postalcode"
+    } else if (!postalCodePattern.test(values.postalcode)) {
+      nextErrors.postalcode = "Enter a valid postal code.";
+    }
+
+    if (!values.walletAddress.trim()) {
+      nextErrors.walletAddress = "Wallet address is required.";
+    } else if (!walletPattern.test(values.walletAddress)) {
+      nextErrors.walletAddress = "Enter a valid Interledger wallet address (e.g. $ilp.interledger-test.dev/username).";
     }
 
     if (!values.password) {
@@ -66,12 +77,10 @@ export default function Register() {
 
   const clearFieldError = (name) => {
     setErrors((current) => {
-      if (!current[name]) {
-        return current;
-      }
-      const nextErrors = { ...current };
-      delete nextErrors[name];
-      return nextErrors;
+      if (!current[name]) return current;
+      const next = { ...current };
+      delete next[name];
+      return next;
     });
   };
 
@@ -82,7 +91,7 @@ export default function Register() {
     setStatus(null);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = validate();
     setErrors(nextErrors);
@@ -96,11 +105,45 @@ export default function Register() {
       return;
     }
 
-    setStatus({
-      variant: "default",
-      title: "Form validated",
-      description: "Connect your auth API to create the account.",
-    });
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: values.name,
+          email: values.email,
+          password: values.password,
+          country: values.country,
+          postalcode: values.postalcode,
+          walletAddress: values.walletAddress,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus({
+          variant: "destructive",
+          title: "Registration failed",
+          description: data.error ?? "Something went wrong.",
+        });
+        return;
+      }
+
+      // Account created and redirection to login
+      navigate("/login", {
+        state: { registered: true, email: values.email },
+      });
+    } catch (err) {
+      setStatus({
+        variant: "destructive",
+        title: "Something went wrong",
+        description: "Could not reach the server. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -113,7 +156,10 @@ export default function Register() {
       footerLinkTo="/login"
     >
       {status && (
-        <Alert variant={status.variant} className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}>
+        <Alert
+          variant={status.variant}
+          className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}
+        >
           <AlertTitle>{status.title}</AlertTitle>
           <AlertDescription>{status.description}</AlertDescription>
         </Alert>
@@ -121,9 +167,7 @@ export default function Register() {
 
       <Form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <FormField>
-          <Label htmlFor="name" className="text-slate-700">
-            Full name
-          </Label>
+          <Label htmlFor="name" className="text-slate-700">Full name</Label>
           <Input
             id="name"
             name="name"
@@ -139,9 +183,7 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="email" className="text-slate-700">
-            Email
-          </Label>
+          <Label htmlFor="email" className="text-slate-700">Email</Label>
           <Input
             id="email"
             name="email"
@@ -158,9 +200,7 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="country" className="text-slate-700">
-            Country
-          </Label>
+          <Label htmlFor="country" className="text-slate-700">Country</Label>
           <Input
             id="country"
             name="country"
@@ -176,9 +216,7 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="postalcode" className="text-slate-700">
-            Postal code
-          </Label>
+          <Label htmlFor="postalcode" className="text-slate-700">Postal code</Label>
           <Input
             id="postalcode"
             name="postalcode"
@@ -190,15 +228,27 @@ export default function Register() {
             aria-describedby="register-postalcode-error"
             className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
           />
-          <FormMessage id="register-postalcode-error">
-            {errors.postalcode ?? " "}
-          </FormMessage>
+          <FormMessage id="register-postalcode-error">{errors.postalcode ?? " "}</FormMessage>
         </FormField>
 
         <FormField>
-          <Label htmlFor="password" className="text-slate-700">
-            Password
-          </Label>
+          <Label htmlFor="walletAddress" className="text-slate-700">Interledger Wallet Address</Label>
+          <Input
+            id="walletAddress"
+            name="walletAddress"
+            autoComplete="off"
+            placeholder="$ilp.interledger-test.dev/username"
+            value={values.walletAddress}
+            onChange={handleChange}
+            aria-invalid={Boolean(errors.walletAddress)}
+            aria-describedby="register-wallet-error"
+            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
+          />
+          <FormMessage id="register-wallet-error">{errors.walletAddress ?? " "}</FormMessage>
+        </FormField>
+
+        <FormField>
+          <Label htmlFor="password" className="text-slate-700">Password</Label>
           <Input
             id="password"
             name="password"
@@ -215,9 +265,7 @@ export default function Register() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="confirmPassword" className="text-slate-700">
-            Confirm password
-          </Label>
+          <Label htmlFor="confirmPassword" className="text-slate-700">Confirm password</Label>
           <Input
             id="confirmPassword"
             name="confirmPassword"
@@ -230,13 +278,11 @@ export default function Register() {
             aria-describedby="register-confirm-password-error"
             className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
           />
-          <FormMessage id="register-confirm-password-error">
-            {errors.confirmPassword ?? " "}
-          </FormMessage>
+          <FormMessage id="register-confirm-password-error">{errors.confirmPassword ?? " "}</FormMessage>
         </FormField>
 
-        <Button type="submit" className="h-11 w-full rounded-xl">
-          Create account
+        <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl">
+          {loading ? "Creating account…" : "Create account"}
         </Button>
 
         <p className="text-center text-xs text-slate-500">

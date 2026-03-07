@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import AuthShell from "@/components/auth-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -8,42 +8,37 @@ import { Form, FormField, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const API_BASE = "/api";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
-  const [values, setValues] = useState({
-    email: "",
-    password: "",
-  });
+  const navigate = useNavigate();
+  const [values, setValues] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const nextErrors = {};
-
     if (!values.email.trim()) {
       nextErrors.email = "Email is required.";
     } else if (!emailPattern.test(values.email)) {
       nextErrors.email = "Enter a valid email address.";
     }
-
     if (!values.password) {
       nextErrors.password = "Password is required.";
     } else if (values.password.length < 8) {
       nextErrors.password = "Password must be at least 8 characters.";
     }
-
     return nextErrors;
   };
 
   const clearFieldError = (name) => {
     setErrors((current) => {
-      if (!current[name]) {
-        return current;
-      }
-      const nextErrors = { ...current };
-      delete nextErrors[name];
-      return nextErrors;
+      if (!current[name]) return current;
+      const next = { ...current };
+      delete next[name];
+      return next;
     });
   };
 
@@ -54,7 +49,7 @@ export default function Login() {
     setStatus(null);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = validate();
     setErrors(nextErrors);
@@ -68,11 +63,37 @@ export default function Login() {
       return;
     }
 
-    setStatus({
-      variant: "default",
-      title: "Form validated",
-      description: "Connect your auth API to complete login.",
-    });
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: values.email, password: values.password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus({
+          variant: "destructive",
+          title: "Unable to sign in",
+          description: data.error ?? "Invalid credentials.",
+        });
+        return;
+      }
+
+      // Store user in sessionStorage and redirect to home
+      sessionStorage.setItem("user", JSON.stringify(data.user));
+      navigate("/");
+    } catch (err) {
+      setStatus({
+        variant: "destructive",
+        title: "Something went wrong",
+        description: "Could not reach the server. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,7 +106,10 @@ export default function Login() {
       footerLinkTo="/register"
     >
       {status && (
-        <Alert variant={status.variant} className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}>
+        <Alert
+          variant={status.variant}
+          className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}
+        >
           <AlertTitle>{status.title}</AlertTitle>
           <AlertDescription>{status.description}</AlertDescription>
         </Alert>
@@ -93,9 +117,7 @@ export default function Login() {
 
       <Form className="space-y-4" onSubmit={handleSubmit} noValidate>
         <FormField>
-          <Label htmlFor="email" className="text-slate-700">
-            Email
-          </Label>
+          <Label htmlFor="email" className="text-slate-700">Email</Label>
           <Input
             id="email"
             name="email"
@@ -112,9 +134,7 @@ export default function Login() {
         </FormField>
 
         <FormField>
-          <Label htmlFor="password" className="text-slate-700">
-            Password
-          </Label>
+          <Label htmlFor="password" className="text-slate-700">Password</Label>
           <Input
             id="password"
             name="password"
@@ -136,8 +156,8 @@ export default function Login() {
           </Link>
         </div>
 
-        <Button type="submit" className="h-11 w-full rounded-xl">
-          Log in
+        <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl">
+          {loading ? "Signing in…" : "Log in"}
         </Button>
       </Form>
     </AuthShell>
