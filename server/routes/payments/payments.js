@@ -10,12 +10,11 @@ try{
 }
 
 const r = Router();
-const user_wallet_url = "https://ilp.interledger-test.dev/nice-donator";
 
 const client = await createAuthenticatedClient({
   keyId: process.env.FUNDMANAGER_KEY_ID,
   privateKey: "private.key",
-  walletAddressUrl: "https://ilp.interledger-test.dev/kitten-fundmanager"
+  walletAddressUrl: process.env.WALLET_ADDRESS_URL
 });
 
 const globalAssetScale = 2;
@@ -125,23 +124,24 @@ async function getWallet(url) {
 }
 
 r.get("/pay-single", async(req, res) => {
+    // post request data
     let amount = '10000'; //note that amount is in cents
     let metadata = {description: `Incoming donation of $${amount/10**2}`};
+    const user_wallet_url = "https://ilp.interledger-test.dev/nice-donator";
     try {
         const donorWallet = await getWallet(user_wallet_url);
         const fundManagerWallet = await getWallet(process.env.RECEIVER_WALLET_ADDRESS_URL);
-        console.log(donorWallet, fundManagerWallet);
+        //console.log(donorWallet, fundManagerWallet);
 
         const incomingPayment = await createIncomingPayment(fundManagerWallet, amount, metadata);
         const quote = await createQuote(fundManagerWallet, donorWallet, incomingPayment, amount);
         const [id, outgoingPaymentGrant] = await createOutgoingPaymentGrant(donorWallet, quote);
-        console.log(id, outgoingPaymentGrant);
+        //console.log(id, outgoingPaymentGrant);
         pendingOutgoingPaymentGrants[id] = {outgoingGrant: outgoingPaymentGrant, donorWallet, quote};
         res.redirect(302, outgoingPaymentGrant.interact.redirect);
     } catch (error) {
-        res.json(error.stack);
+        res.send(error.stack);
     }
-
     //res.send("Success");
 });
 
@@ -183,7 +183,24 @@ r.get("/complete-payment/:uid", async (req, res) => {
 });
 
 r.get("/pay", async (req, res) => {
+    let amount = '10000'; //note that amount is in cents
+    let metadata = {description: `Incoming donation of $${amount/10**2}`};
+    const user_wallet_url = "https://ilp.interledger-test.dev/nice-donator";
+    try {
+        const donorWallet = await getWallet(user_wallet_url);
+        const fundManagerWallet = await getWallet(process.env.RECEIVER_WALLET_ADDRESS_URL);
+        //console.log(donorWallet, fundManagerWallet);
 
+        const incomingPayment = await createIncomingPayment(fundManagerWallet, amount, metadata);
+        const quote = await createQuote(fundManagerWallet, donorWallet, incomingPayment, amount);
+        const [id, outgoingPaymentGrant] = await createOutgoingPaymentGrant(donorWallet, quote);
+        //console.log(id, outgoingPaymentGrant);
+        pendingOutgoingPaymentGrants[id] = {outgoingGrant: outgoingPaymentGrant, donorWallet, quote};
+        res.redirect(302, outgoingPaymentGrant.interact.redirect);
+    } catch (error) {
+        res.json(error.stack);
+    }
+    res.send("Success");
 });
 
 export default r
