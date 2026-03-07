@@ -66,7 +66,7 @@ export async function createTable(client) {
 // ---------------------------------------------------------------------------
 
 /**
- * Verifies a wallet address exists by calling the Open Payments API.
+ * Verifies a wallet address exists using the Open Payments SDK.
  * Wallet address format: $hostname/username (e.g. $ilp.interledger-test.dev/alice)
  *
  * @param {string} walletAddress - e.g. "$ilp.interledger-test.dev/alice"
@@ -76,7 +76,6 @@ export async function verifyWalletAddress(walletAddress) {
   try {
     const trimmed = walletAddress.trim()
 
-    // Must start with $
     if (!trimmed.startsWith('$')) {
       return { valid: false, error: 'Wallet address must start with $' }
     }
@@ -84,26 +83,18 @@ export async function verifyWalletAddress(walletAddress) {
     // Convert $hostname/path → https://hostname/path
     const url = 'https://' + trimmed.slice(1)
 
-    const res = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-      },
-    })
+    const { createUnauthenticatedClient } = await import('@interledger/open-payments')
+    const client = await createUnauthenticatedClient()
 
-    if (!res.ok) {
-      return { valid: false, error: `Wallet address not found (status ${res.status})` }
-    }
+    const details = await client.walletAddress.get({ url })
 
-    const details = await res.json()
-
-    // A valid Open Payments wallet returns an "id" field
-    if (!details.id) {
-      return { valid: false, error: 'Invalid wallet response from Interledger' }
+    if (!details || !details.id) {
+      return { valid: false, error: 'Wallet address not found on Interledger network' }
     }
 
     return { valid: true, details }
   } catch (err) {
-    return { valid: false, error: `Could not reach Interledger: ${err.message}` }
+    return { valid: false, error: `Invalid wallet address: ${err.message}` }
   }
 }
 
