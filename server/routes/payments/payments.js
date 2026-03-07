@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { loadEnvFile } from 'node:process';
-import { isFinalizedGrantWithAccessToken, createAuthenticatedClient } from '@interledger/open-payments'
+import { isFinalizedGrantWithAccessToken, createAuthenticatedClient, OpenPaymentsClientError } from '@interledger/open-payments'
 import { randomUUID } from 'crypto'
 
 try{
@@ -18,7 +18,7 @@ const client = await createAuthenticatedClient({
 });
 
 const globalAssetScale = 2;
-const paymentCompleteURI = "http://localhost:8009/payments/complete-payment"
+const paymentCompleteURI = "http://localhost:8009/payments/complete-single-payment"
 let pendingOutgoingPaymentGrants = {};
 
 const sampleMetaData = {
@@ -26,7 +26,7 @@ const sampleMetaData = {
     description: 'Purchase at Shoe Shop'
 };
 
-async function createIncomingPayment(receivingWallet, amount, metadata) {
+async function createIncomingPayment(receivingWallet, payingWallet, amount, metadata) {
     //create grant request
     const incomingPaymentGrant = await client.grant.request({ url: receivingWallet.authServer },
     {
@@ -39,7 +39,7 @@ async function createIncomingPayment(receivingWallet, amount, metadata) {
             ]
         }
     });
-
+    //console.log(typeof(amount), amount);
     let incomingPayment = await client.incomingPayment.create(
     {
         url: receivingWallet.resourceServer,
@@ -47,13 +47,12 @@ async function createIncomingPayment(receivingWallet, amount, metadata) {
     },
     {
         walletAddress: receivingWallet.id,
-        incomingAmount: 
-            {
-                assetCode: receivingWallet.assetCode,
-                assetScale: globalAssetScale,
-                value: amount
-            },
-        metadata: metadata
+        metadata: metadata,
+        incomingAmount: {
+            assetCode: receivingWallet.assetCode,
+            assetScale: globalAssetScale,
+            value: amount,
+        }
     });
 
     return incomingPayment;
@@ -81,28 +80,38 @@ async function createQuote(receivingWallet, payingWallet, incomingPayment, amoun
     {
         walletAddress: payingWallet.id,
         receiver: incomingPayment.id,
-        method: 'ilp'
+        method: 'ilp',
+        /*
+        debit amount not working, unable to add to receiving account
+        debitAmount: {
+            assetCode: payingWallet.assetCode,
+            assetScale: globalAssetScale,
+            value: amount,
+        }*/
     });
 
-    quote.debitAmount.value = amount
+    console.log(quote.debitAmount);
 
     return quote;
 }
 
-async function createOutgoingPaymentGrant(payingWallet, quote) {
+async function createOutgoingPaymentGrant(payingWallet, quote, interval = null) {
     const uid = randomUUID();
+    let outgoingPaymentGrant;
 
-    const outgoingPaymentGrant = await client.grant.request(
-    { url: payingWallet.authServer },
-    {
-        access_token: {
-            access: [{
-                type: 'outgoing-payment',
-                actions: ['read', 'create', 'list'],
-                identifier: payingWallet.id,
-                limits: {
-                    debitAmount: quote.debitAmount // to authorize an amount up to the quoted amount
-                }}]
+    if (!interval) {
+        outgoingPaymentGrant = await client.grant.request(
+        { url: payingWallet.authServer },
+        {
+            access_token: {
+                access: [{
+                    type: 'outgoing-payment',
+                    actions: ['read', 'create', 'list'],
+                    identifier: payingWallet.id,
+                    limits: {
+                        debitAmount: quote.debitAmount // to authorize an amount up to the quoted amount
+                    }
+                }]
             },
             interact: {
                 start: ['redirect'],
@@ -112,7 +121,32 @@ async function createOutgoingPaymentGrant(payingWallet, quote) {
                     nonce: randomUUID(),
                 }
             }
-    });
+        });
+    } else {
+        outgoingPaymentGrant = await client.grant.request(
+        { url: payingWallet.authServer },
+        {
+            access_token: {
+                access: [{
+                    type: 'outgoing-payment',
+                    actions: ['read', 'create', 'list'],
+                    identifier: payingWallet.id,
+                    limits: {
+                        debitAmount: quote.debitAmount // to authorize an amount up to the quoted amount
+                    },
+                    interval: interval
+                }]
+            },
+            interact: {
+                start: ['redirect'],
+                finish: {
+                    method: 'redirect',
+                    uri: `${paymentCompleteURI}/${uid}`, // where to redirect the customer after the interaction is completed
+                    nonce: randomUUID(),
+                }
+            }
+        });
+    }
 
     return [uid, outgoingPaymentGrant];
 }
@@ -133,19 +167,27 @@ r.get("/pay-single", async(req, res) => {
         const fundManagerWallet = await getWallet(process.env.RECEIVER_WALLET_ADDRESS_URL);
         //console.log(donorWallet, fundManagerWallet);
 
-        const incomingPayment = await createIncomingPayment(fundManagerWallet, amount, metadata);
+        const incomingPayment = await createIncomingPayment(fundManagerWallet, donorWallet, amount, metadata);
         const quote = await createQuote(fundManagerWallet, donorWallet, incomingPayment, amount);
         const [id, outgoingPaymentGrant] = await createOutgoingPaymentGrant(donorWallet, quote);
         //console.log(id, outgoingPaymentGrant);
         pendingOutgoingPaymentGrants[id] = {outgoingGrant: outgoingPaymentGrant, donorWallet, quote};
         res.redirect(302, outgoingPaymentGrant.interact.redirect);
     } catch (error) {
-        res.send(error.stack);
-    }
+        if (error instanceof OpenPaymentsClientError) {
+            console.log(error.message)
+            console.log(error.description) // additional description of the error
+            console.log(error.status) // the HTTP status of the request, if a request failure
+            console.log(error.code) // the error code from the Open Payments API
+            console.log(error.validationErrors) // an array of validation errors. Populated if the response of the request failed OpenAPI specfication validation, or other validation checks.
+            console.log(error.details) // an object containing additional error details
+        } else {
+            console.log(error)
+        }    }
     //res.send("Success");
 });
 
-r.get("/complete-payment/:uid", async (req, res) => {
+r.get("/complete-single-payment/:uid", async (req, res) => {
     let interactRef = req.query["interact_ref"];
     let {outgoingGrant, donorWallet, quote} = pendingOutgoingPaymentGrants[req.params.uid];
 
@@ -182,25 +224,47 @@ r.get("/complete-payment/:uid", async (req, res) => {
     }
 });
 
+/* recurring is not working
+    message:    Error making Open Payments POST request
+    description:    internal server error
+    error status:    500
+    error code    request_denied
 r.get("/pay", async (req, res) => {
     let amount = '10000'; //note that amount is in cents
     let metadata = {description: `Incoming donation of $${amount/10**2}`};
+    let num_recurring_payments = 12;
+    let recurring_start_date = new Date();
     const user_wallet_url = "https://ilp.interledger-test.dev/nice-donator";
+    const interval_string = `R${num_recurring_payments}/${recurring_start_date.getFullYear()}-${recurring_start_date.getMonth() + 1}-${recurring_start_date.getDate() + 1}T07:18:00/P1M`;
     try {
         const donorWallet = await getWallet(user_wallet_url);
         const fundManagerWallet = await getWallet(process.env.RECEIVER_WALLET_ADDRESS_URL);
         //console.log(donorWallet, fundManagerWallet);
 
-        const incomingPayment = await createIncomingPayment(fundManagerWallet, amount, metadata);
+        const incomingPayment = await createIncomingPayment(fundManagerWallet, donorWallet, amount, metadata);
         const quote = await createQuote(fundManagerWallet, donorWallet, incomingPayment, amount);
-        const [id, outgoingPaymentGrant] = await createOutgoingPaymentGrant(donorWallet, quote);
+        const [id, outgoingPaymentGrant] = await createOutgoingPaymentGrant(donorWallet, quote, interval_string);
         //console.log(id, outgoingPaymentGrant);
         pendingOutgoingPaymentGrants[id] = {outgoingGrant: outgoingPaymentGrant, donorWallet, quote};
         res.redirect(302, outgoingPaymentGrant.interact.redirect);
     } catch (error) {
-        res.json(error.stack);
+          if (error instanceof OpenPaymentsClientError) {
+            console.log(error.message)
+            console.log(error.description) // additional description of the error
+            console.log(error.status) // the HTTP status of the request, if a request failure
+            console.log(error.code) // the error code from the Open Payments API
+            console.log(error.validationErrors) // an array of validation errors. Populated if the response of the request failed OpenAPI specfication validation, or other validation checks.
+            console.log(error.details) // an object containing additional error details
+        } else {
+            console.log(error)
+        }
     }
-    res.send("Success");
+    //res.send("Success");
+});
+*/
+
+r.get("/complete-recurring-payment/:uid", async (req, res) => {
+
 });
 
 export default r
