@@ -1,7 +1,7 @@
 import { Router } from 'express'
 const router = Router()
 
-import { createClient } from '@clickhouse/client'
+
 
 
 
