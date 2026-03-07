@@ -52,6 +52,8 @@ export async function createTable(client) {
         country         String,
         postal_code     String,
         wallet_address  String,
+        latitude        Float64,
+        longitude       Float64,
         created_at      DateTime64(3, 'UTC') DEFAULT now64()
       )
       ENGINE = MergeTree()
@@ -99,19 +101,32 @@ export async function verifyWalletAddress(walletAddress) {
 }
 
 // ---------------------------------------------------------------------------
-// Register
+// Geocoding
 // ---------------------------------------------------------------------------
 
 /**
- * Registers a new user.
- *
- * @param {object} client - ClickHouse client
- * @param {string} username
- * @param {string} email
- * @param {string} plainPassword  - plain-text; hashed before storage
- * @returns {Promise<{user_id, username, email, created_at}>}
- * @throws {Error} if the email is already taken
+ * Converts a postal code + country to [longitude, latitude] coordinates
+ * using OpenStreetMap Nominatim (free, no API key required).
  */
+export async function postalCodeToCoords(postalCode, country) {
+  try {
+    const query = encodeURIComponent(`${postalCode}, ${country}`)
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { headers: { 'User-Agent': 'KittenFinance/1.0' } }
+    )
+    const data = await res.json()
+    if (!data.length) return null
+    return [parseFloat(data[0].lon), parseFloat(data[0].lat)] // [lon, lat]
+  } catch {
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Register
+// ---------------------------------------------------------------------------
+
 export async function registerUser(client, username, email, plainPassword, country, postalCode, walletAddress) {
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -124,6 +139,15 @@ export async function registerUser(client, username, email, plainPassword, count
   const [{ n }] = await check.json();
   if (Number(n) > 0) {
     throw new Error(`Email '${normalizedEmail}' is already registered.`);
+  }
+
+  // Geocode postal code to coordinates
+  const coords = await postalCodeToCoords(postalCode, country)
+  const longitude = coords ? coords[0] : 0
+  const latitude  = coords ? coords[1] : 0
+
+  if (!coords) {
+    console.warn(`⚠ Could not geocode postal code ${postalCode}, ${country} — storing 0,0`)
   }
 
   const passwordHash = await bcrypt.hash(plainPassword, 12);
@@ -141,14 +165,16 @@ export async function registerUser(client, username, email, plainPassword, count
         country: country.trim(),
         postal_code: postalCode.trim(),
         wallet_address: walletAddress.trim(),
+        latitude,
+        longitude,
         created_at: createdAt,
       },
     ],
     format: "JSONEachRow",
   });
 
-  console.log(`✓ Registered user '${username}' (${userId})`);
-  return { user_id: userId, username, email: normalizedEmail, country, postal_code: postalCode, wallet_address: walletAddress, created_at: createdAt };
+  console.log(`✓ Registered user '${username}' (${userId}) at [${longitude}, ${latitude}]`)
+  return { user_id: userId, username, email: normalizedEmail, country, postal_code: postalCode, wallet_address: walletAddress, latitude, longitude, created_at: createdAt };
 }
 
 // ---------------------------------------------------------------------------

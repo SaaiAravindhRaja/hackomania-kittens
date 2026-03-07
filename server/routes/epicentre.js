@@ -1,83 +1,224 @@
 import { Router } from 'express'
+import { createClient } from '@clickhouse/client'
+import { loadEnvFile } from 'node:process'
+import haversine from 'haversine'
+import { randomUUID } from 'crypto'
+
+try {
+  loadEnvFile()
+} catch (error) {
+  console.log('No .env file found, relying on environment variables')
+}
+
 const router = Router()
 
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
 
+const MAX_RADIUS_KM    = 2000  // beyond this → no payment
+const MAX_PAYMENT_CENTS = 10000 // $100.00 at scale 2 — full payment for those at epicenter
 
-import { createClient } from '@clickhouse/client'
+// ---------------------------------------------------------------------------
+// ClickHouse client
+// ---------------------------------------------------------------------------
 
-
-
-
-
-import haversine from 'haversine'
-
-function getDistance(a, b) { // geojson positions are (lon, lat)
-    const point_a = {latitude: a[1], longitude: a[0]};
-    const point_b = {latitude: b[1], longitude: b[0]};
-    return haversine(point_a, point_b, {unit: 'meter'})
+function getClient() {
+  return createClient({
+    url: `https://${process.env.CH_HOST}:${process.env.CH_PORT ?? 8443}`,
+    username: process.env.CH_USER ?? 'default',
+    password: process.env.CH_PASSWORD,
+    database: process.env.CH_DATABASE ?? 'default',
+  })
 }
 
-// EONET event categories:
-//  - drought
-//  - dustHaze
-//  - earthquakes
-//  - floods
-//  - landslides
-//  - manmade
-//  - seaLakeIce
-//  - severStorms
-//  - snow
-//  - tempExtremes
-//  - volcanoes
-//  - waterColor
-//  - wildfires
+// ---------------------------------------------------------------------------
+// Haversine helper  (GeoJSON coords are [lon, lat])
+// ---------------------------------------------------------------------------
 
+function getDistanceKm(a, b) {
+  return haversine(
+    { latitude: a[1], longitude: a[0] },
+    { latitude: b[1], longitude: b[0] },
+    { unit: 'km' }
+  )
+}
 
+// ---------------------------------------------------------------------------
+// Convert postal code → coordinates via Open Street Map Nominatim (free, no key)
+// ---------------------------------------------------------------------------
 
-async function getEvents() {
-    const url = "https://eonet.gsfc.nasa.gov/api/v3/events?limit=1";
+async function postalCodeToCoords(postalCode, country) {
+  try {
+    const query = encodeURIComponent(`${postalCode}, ${country}`)
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { headers: { 'User-Agent': 'KittenFinance/1.0' } }
+    )
+    const data = await res.json()
+    if (!data.length) return null
+    return [parseFloat(data[0].lon), parseFloat(data[0].lat)] // [lon, lat]
+  } catch {
+    return null
+  }
+}
 
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw Error('http error: ', response.status);
-        }
-        const data = await response.json();
-        
-        return data.events
-    } catch (error) {
-        console.error('unable to get events: ', error)
+// ---------------------------------------------------------------------------
+// Payment falloff — linear decay from epicenter to MAX_RADIUS_KM
+// ---------------------------------------------------------------------------
+
+function calculatePayment(distanceKm) {
+  if (distanceKm >= MAX_RADIUS_KM) return 0
+  const ratio = 1 - (distanceKm / MAX_RADIUS_KM) // 1.0 at center, 0.0 at edge
+  return Math.round(MAX_PAYMENT_CENTS * ratio)
+}
+
+// ---------------------------------------------------------------------------
+// Get latest disaster events from NASA EONET
+// ---------------------------------------------------------------------------
+
+async function getEvents(limit = 1) {
+  const res = await fetch(`https://eonet.gsfc.nasa.gov/api/v3/events?limit=${limit}`)
+  if (!res.ok) throw new Error(`EONET error: ${res.status}`)
+  const data = await res.json()
+  return data.events
+}
+
+// ---------------------------------------------------------------------------
+// Get epicenter — latest coordinate point of the event
+// ---------------------------------------------------------------------------
+
+function getEpicenter(event) {
+  const points = event.geometry.filter(g => g.type === 'Point')
+  if (!points.length) return null
+  return points[points.length - 1].coordinates // most recent point
+}
+
+// ---------------------------------------------------------------------------
+// Find affected users and calculate their payment amounts
+// ---------------------------------------------------------------------------
+
+async function getAffectedUsers(epicenterCoords) {
+  const client = getClient()
+
+  const rows = await client.query({
+    query: 'SELECT user_id, username, email, country, postal_code, wallet_address, latitude, longitude FROM users',
+    format: 'JSONEachRow',
+  })
+
+  const users = await rows.json()
+  const affected = []
+
+  for (const user of users) {
+    // Skip users with no coordinates stored
+    if (!user.latitude || !user.longitude) {
+      console.log(`⚠ No coordinates for ${user.username}, skipping`)
+      continue
     }
+
+    const userCoords = [user.longitude, user.latitude]
+    const distanceKm = getDistanceKm(epicenterCoords, userCoords)
+    const paymentCents = calculatePayment(distanceKm)
+
+    console.log(`  ${user.username}: ${Math.round(distanceKm)}km away → $${(paymentCents / 100).toFixed(2)}`)
+
+    if (paymentCents > 0) {
+      affected.push({
+        ...user,
+        distanceKm: Math.round(distanceKm),
+        paymentCents,
+        paymentDollars: (paymentCents / 100).toFixed(2),
+      })
+    }
+  }
+
+  // Sort by distance — closest first
+  return affected.sort((a, b) => a.distanceKm - b.distanceKm)
 }
 
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
 
+// GET /epicenter
+// Returns the latest disaster event and all affected users with payment amounts
 router.get('/', async (req, res) => {
-    const data = await getEvents();
-    const test_event = data[0];
-    const points = test_event.geometry;
-    console.log(test_event);
-    console.log(points);
+  try {
+    const events = await getEvents(1)
+    const event = events[0]
+    const epicenter = getEpicenter(event)
 
-    for (let c = 0; c < points.length; c++) {
-        if (points[c].type == 'Point') {
-            console.log(points[c].coordinates);
-        }
+    if (!epicenter) {
+      return res.status(400).json({ error: 'No point geometry found for this event' })
     }
-    
-    
-    console.log(getDistance(points[0].coordinates, points[1].coordinates));
 
-    const client = createClient({
-        url: `https://${process.env.CH_HOST}:${process.env.CH_PORT ?? 8443}`,
-        username: 'default',
-        password: process.env.CH_PASSWORD,
-        database: process.env.CH_DATABASE ?? "default"
+    console.log(`\n🌍 Disaster: ${event.title}`)
+    console.log(`📍 Epicenter: [${epicenter}]`)
+    console.log(`👥 Checking affected users...\n`)
+
+    const affectedUsers = await getAffectedUsers(epicenter)
+
+    return res.json({
+      event: {
+        id: event.id,
+        title: event.title,
+        categories: event.categories,
+        epicenter,
+        date: event.geometry[event.geometry.length - 1].date,
+      },
+      maxRadiusKm: MAX_RADIUS_KM,
+      maxPaymentDollars: (MAX_PAYMENT_CENTS / 100).toFixed(2),
+      affectedCount: affectedUsers.length,
+      affectedUsers,
     })
-    const rows = await client.query({
-        query: 'SELECT * FROM users;',
-        format: 'JSONEachRow',
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /epicenter/test
+// Uses the hardcoded Tropical Cyclone 26S test case
+router.get('/test', async (req, res) => {
+  try {
+    const testEvent = {
+      id: 'EONET_18423',
+      title: 'Tropical Cyclone 26S',
+      categories: [{ id: 'severeStorms', title: 'Severe Storms' }],
+      geometry: [
+        { type: 'Point', date: '2026-03-06T00:00:00Z', coordinates: [113.7, -15.8] },
+        { type: 'Point', date: '2026-03-06T06:00:00Z', coordinates: [113.4, -15.9] },
+        { type: 'Point', date: '2026-03-06T12:00:00Z', coordinates: [112.9, -15.9] },
+        { type: 'Point', date: '2026-03-06T18:00:00Z', coordinates: [112.5, -16.1] },
+        { type: 'Point', date: '2026-03-07T00:00:00Z', coordinates: [111.8, -16.5] },
+      ],
+    }
+
+    const epicenter = getEpicenter(testEvent)
+
+    console.log(`\n🌍 TEST Disaster: ${testEvent.title}`)
+    console.log(`📍 Epicenter: [${epicenter}]`)
+    console.log(`👥 Checking affected users...\n`)
+
+    const affectedUsers = await getAffectedUsers(epicenter)
+
+    return res.json({
+      event: {
+        id: testEvent.id,
+        title: testEvent.title,
+        categories: testEvent.categories,
+        epicenter,
+        date: testEvent.geometry[testEvent.geometry.length - 1].date,
+      },
+      maxRadiusKm: MAX_RADIUS_KM,
+      maxPaymentDollars: (MAX_PAYMENT_CENTS / 100).toFixed(2),
+      affectedCount: affectedUsers.length,
+      affectedUsers,
     })
-    console.log('Result: ', await rows.json())
-});
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: err.message })
+  }
+})
 
 export default router
