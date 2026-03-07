@@ -38,7 +38,7 @@ export function getClient() {
 // ---------------------------------------------------------------------------
 
 /**
- * Creates the `users` table if it doesn't already exist.
+ * Creates required tables if they don't already exist.
  * Call once at app startup.
  */
 export async function createTable(client) {
@@ -60,7 +60,66 @@ export async function createTable(client) {
       ORDER BY (email)
     `,
   });
-  console.log("✓ Table 'users' is ready.");
+  await client.command({
+    query: `
+      CREATE TABLE IF NOT EXISTS auth_events (
+        event_id     UUID                DEFAULT generateUUIDv4(),
+        event_type   LowCardinality(String),
+        success      UInt8,
+        email        String,
+        user_id      String,
+        reason       String,
+        ip_address   String,
+        user_agent   String,
+        created_at   DateTime64(3, 'UTC') DEFAULT now64()
+      )
+      ENGINE = MergeTree()
+      ORDER BY (created_at, email)
+    `,
+  });
+
+  await client.command({
+    query: `
+      CREATE TABLE IF NOT EXISTS donation_events (
+        event_id              UUID                DEFAULT generateUUIDv4(),
+        donation_id           String,
+        status                LowCardinality(String),
+        user_id               String,
+        email                 String,
+        donor_wallet_address  String,
+        fund_wallet_url       String,
+        amount_cents          Int64,
+        redirect_url          String,
+        outgoing_payment_id   String,
+        error_message         String,
+        created_at            DateTime64(3, 'UTC') DEFAULT now64()
+      )
+      ENGINE = MergeTree()
+      ORDER BY (created_at, donation_id)
+    `,
+  });
+
+  await client.command({
+    query: `
+      CREATE TABLE IF NOT EXISTS payout_events (
+        event_id                 UUID                DEFAULT generateUUIDv4(),
+        disaster_event_id        String,
+        disaster_event_title     String,
+        user_id                  String,
+        username                 String,
+        recipient_wallet_address String,
+        amount_cents             Int64,
+        success                  UInt8,
+        outgoing_payment_id      String,
+        error_message            String,
+        created_at               DateTime64(3, 'UTC') DEFAULT now64()
+      )
+      ENGINE = MergeTree()
+      ORDER BY (created_at, disaster_event_id, user_id)
+    `,
+  });
+
+  console.log("✓ Tables 'users', 'auth_events', 'donation_events', and 'payout_events' are ready.");
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +251,7 @@ export async function authenticateUser(client, email, plainPassword) {
 
   const result = await client.query({
     query: `
-      SELECT user_id, username, email, password_hash, created_at
+      SELECT user_id, username, email, password_hash, country, postal_code, wallet_address, created_at
       FROM users
       WHERE email = {email:String}
       LIMIT 1
@@ -212,8 +271,108 @@ export async function authenticateUser(client, email, plainPassword) {
     user_id: user.user_id,
     username: user.username,
     email: user.email,
+    country: user.country,
+    postal_code: user.postal_code,
+    wallet_address: user.wallet_address,
     created_at: user.created_at,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Event logs
+// ---------------------------------------------------------------------------
+
+function cleanString(value) {
+  return String(value ?? "").trim();
+}
+
+export async function logAuthEvent(
+  client,
+  { eventType = "login", success = false, email = "", userId = "", reason = "", ipAddress = "", userAgent = "" } = {}
+) {
+  await client.insert({
+    table: "auth_events",
+    values: [
+      {
+        event_type: cleanString(eventType),
+        success: success ? 1 : 0,
+        email: cleanString(email).toLowerCase(),
+        user_id: cleanString(userId),
+        reason: cleanString(reason),
+        ip_address: cleanString(ipAddress),
+        user_agent: cleanString(userAgent),
+      },
+    ],
+    format: "JSONEachRow",
+  });
+}
+
+export async function logDonationEvent(
+  client,
+  {
+    donationId = "",
+    status = "initiated",
+    userId = "",
+    email = "",
+    donorWalletAddress = "",
+    fundWalletUrl = "",
+    amountCents = 0,
+    redirectUrl = "",
+    outgoingPaymentId = "",
+    errorMessage = "",
+  } = {}
+) {
+  await client.insert({
+    table: "donation_events",
+    values: [
+      {
+        donation_id: cleanString(donationId),
+        status: cleanString(status),
+        user_id: cleanString(userId),
+        email: cleanString(email).toLowerCase(),
+        donor_wallet_address: cleanString(donorWalletAddress),
+        fund_wallet_url: cleanString(fundWalletUrl),
+        amount_cents: Number.isFinite(Number(amountCents)) ? Number(amountCents) : 0,
+        redirect_url: cleanString(redirectUrl),
+        outgoing_payment_id: cleanString(outgoingPaymentId),
+        error_message: cleanString(errorMessage),
+      },
+    ],
+    format: "JSONEachRow",
+  });
+}
+
+export async function logPayoutEvent(
+  client,
+  {
+    disasterEventId = "",
+    disasterEventTitle = "",
+    userId = "",
+    username = "",
+    recipientWalletAddress = "",
+    amountCents = 0,
+    success = false,
+    outgoingPaymentId = "",
+    errorMessage = "",
+  } = {}
+) {
+  await client.insert({
+    table: "payout_events",
+    values: [
+      {
+        disaster_event_id: cleanString(disasterEventId),
+        disaster_event_title: cleanString(disasterEventTitle),
+        user_id: cleanString(userId),
+        username: cleanString(username),
+        recipient_wallet_address: cleanString(recipientWalletAddress),
+        amount_cents: Number.isFinite(Number(amountCents)) ? Number(amountCents) : 0,
+        success: success ? 1 : 0,
+        outgoing_payment_id: cleanString(outgoingPaymentId),
+        error_message: cleanString(errorMessage),
+      },
+    ],
+    format: "JSONEachRow",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +384,7 @@ export async function getUserByEmail(client, email) {
   const normalizedEmail = email.trim().toLowerCase();
   const result = await client.query({
     query: `
-      SELECT user_id, username, email, created_at
+      SELECT user_id, username, email, country, postal_code, wallet_address, latitude, longitude, created_at
       FROM users WHERE email = {email:String} LIMIT 1
     `,
     query_params: { email: normalizedEmail },
@@ -239,7 +398,7 @@ export async function getUserByEmail(client, email) {
 export async function getUserById(client, userId) {
   const result = await client.query({
     query: `
-      SELECT user_id, username, email, created_at
+      SELECT user_id, username, email, country, postal_code, wallet_address, latitude, longitude, created_at
       FROM users WHERE user_id = {userId:UUID} LIMIT 1
     `,
     query_params: { userId },
@@ -247,6 +406,24 @@ export async function getUserById(client, userId) {
   });
   const rows = await result.json();
   return rows[0] ?? null;
+}
+
+/** Update a user's wallet address and return the latest record. */
+export async function updateUserWallet(client, userId, walletAddress) {
+  await client.command({
+    query: `
+      ALTER TABLE users
+      UPDATE wallet_address = {walletAddress:String}
+      WHERE user_id = {userId:UUID}
+      SETTINGS mutations_sync = 2
+    `,
+    query_params: {
+      userId,
+      walletAddress: walletAddress.trim(),
+    },
+  });
+
+  return getUserById(client, userId);
 }
 
 /** List the most recently registered users. */

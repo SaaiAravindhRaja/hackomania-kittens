@@ -30,7 +30,7 @@ export default function Login() {
   useEffect(() => {
     const authedUser = getStoredUser();
     if (authedUser) {
-      navigate("/dashboard", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [navigate]);
 
@@ -131,7 +131,7 @@ export default function Login() {
       }
 
       setStoredUser(data.user);
-      navigate("/dashboard", { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       setStatus({
         variant: "destructive",

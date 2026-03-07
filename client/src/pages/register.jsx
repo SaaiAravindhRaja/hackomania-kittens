@@ -37,7 +37,7 @@ export default function Register() {
   useEffect(() => {
     const authedUser = getStoredUser();
     if (authedUser) {
-      navigate("/dashboard", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [navigate]);
 

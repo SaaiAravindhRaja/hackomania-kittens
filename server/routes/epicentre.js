@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { createClient } from '@clickhouse/client'
 import { loadEnvFile } from 'node:process'
 import haversine from 'haversine'
-import { randomUUID } from 'crypto'
+import { runDisasterPayouts } from './payments/payments.js'
 
 try {
   loadEnvFile()
@@ -136,6 +136,21 @@ async function getAffectedUsers(epicenterCoords) {
   return affected.sort((a, b) => a.distanceKm - b.distanceKm)
 }
 
+function getTestEvent() {
+  return {
+    id: 'EONET_18423',
+    title: 'Tropical Cyclone 26S',
+    categories: [{ id: 'severeStorms', title: 'Severe Storms' }],
+    geometry: [
+      { type: 'Point', date: '2026-03-06T00:00:00Z', coordinates: [113.7, -15.8] },
+      { type: 'Point', date: '2026-03-06T06:00:00Z', coordinates: [113.4, -15.9] },
+      { type: 'Point', date: '2026-03-06T12:00:00Z', coordinates: [112.9, -15.9] },
+      { type: 'Point', date: '2026-03-06T18:00:00Z', coordinates: [112.5, -16.1] },
+      { type: 'Point', date: '2026-03-07T00:00:00Z', coordinates: [111.8, -16.5] },
+    ],
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
@@ -181,18 +196,7 @@ router.get('/', async (req, res) => {
 // Uses the hardcoded Tropical Cyclone 26S test case
 router.get('/test', async (req, res) => {
   try {
-    const testEvent = {
-      id: 'EONET_18423',
-      title: 'Tropical Cyclone 26S',
-      categories: [{ id: 'severeStorms', title: 'Severe Storms' }],
-      geometry: [
-        { type: 'Point', date: '2026-03-06T00:00:00Z', coordinates: [113.7, -15.8] },
-        { type: 'Point', date: '2026-03-06T06:00:00Z', coordinates: [113.4, -15.9] },
-        { type: 'Point', date: '2026-03-06T12:00:00Z', coordinates: [112.9, -15.9] },
-        { type: 'Point', date: '2026-03-06T18:00:00Z', coordinates: [112.5, -16.1] },
-        { type: 'Point', date: '2026-03-07T00:00:00Z', coordinates: [111.8, -16.5] },
-      ],
-    }
+    const testEvent = getTestEvent()
 
     const epicenter = getEpicenter(testEvent)
 
@@ -217,6 +221,73 @@ router.get('/test', async (req, res) => {
     })
   } catch (err) {
     console.error(err)
+    return res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /epicentre/trigger-payouts
+// Body: { mode?: 'live' | 'test' }
+router.post('/trigger-payouts', async (req, res) => {
+  try {
+    const mode = String(req.body?.mode ?? 'live').toLowerCase()
+    const event =
+      mode === 'test'
+        ? getTestEvent()
+        : (await getEvents(1))[0]
+
+    if (!event) {
+      return res.status(404).json({ error: 'No disaster events available.' })
+    }
+
+    const epicenter = getEpicenter(event)
+
+    if (!epicenter) {
+      return res.status(400).json({ error: 'No point geometry found for this event.' })
+    }
+
+    const affectedUsers = await getAffectedUsers(epicenter)
+
+    if (affectedUsers.length === 0) {
+      return res.json({
+        success: true,
+        event: {
+          id: event.id,
+          title: event.title,
+          categories: event.categories,
+          epicenter,
+          date: event.geometry[event.geometry.length - 1]?.date,
+        },
+        affectedCount: 0,
+        payoutSummary: {
+          successCount: 0,
+          failureCount: 0,
+          totalPayoutCents: 0,
+          totalPayoutDollars: '0.00',
+          results: [],
+        },
+        message: 'No eligible recipients found for this event.',
+      })
+    }
+
+    const payoutSummary = await runDisasterPayouts(affectedUsers, {
+      id: event.id,
+      title: event.title,
+    })
+
+    return res.json({
+      success: true,
+      event: {
+        id: event.id,
+        title: event.title,
+        categories: event.categories,
+        epicenter,
+        date: event.geometry[event.geometry.length - 1]?.date,
+      },
+      affectedCount: affectedUsers.length,
+      payoutSummary,
+    })
+  } catch (err) {
+    console.error('Trigger payout error:', err)
     return res.status(500).json({ error: err.message })
   }
 })

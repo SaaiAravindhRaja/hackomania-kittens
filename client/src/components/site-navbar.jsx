@@ -72,6 +72,12 @@ export default function SiteNavbar({ user, onLogout }) {
           <NavLink to="/dashboard" className={navClass}>
             Dashboard
           </NavLink>
+          <NavLink to="/donation" className={navClass}>
+            Donation
+          </NavLink>
+          <NavLink to="/wallet" className={navClass}>
+            Wallet
+          </NavLink>
         </nav>
 
         <div className="hidden md:block">
@@ -97,6 +103,12 @@ export default function SiteNavbar({ user, onLogout }) {
             </NavLink>
             <NavLink to="/dashboard" className={navClass} onClick={closeMenu}>
               Dashboard
+            </NavLink>
+            <NavLink to="/donation" className={navClass} onClick={closeMenu}>
+              Donation
+            </NavLink>
+            <NavLink to="/wallet" className={navClass} onClick={closeMenu}>
+              Wallet
             </NavLink>
           </div>
           <div className="mt-4">
