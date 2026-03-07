@@ -84,7 +84,7 @@ export async function verifyWalletAddress(walletAddress) {
     const url = 'https://' + trimmed.slice(1)
 
     const { createUnauthenticatedClient } = await import('@interledger/open-payments')
-    const client = await createUnauthenticatedClient()
+    const client = await createUnauthenticatedClient({ walletAddressUrl: url })
 
     const details = await client.walletAddress.get({ url })
 
