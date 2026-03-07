@@ -16,6 +16,7 @@
   "description": "",
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
+    "@interledger/open-payments": "^7.3.0",
     "@tailwindcss/vite": "^4.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
