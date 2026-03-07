@@ -66,12 +66,6 @@ export default function SiteNavbar({ user, onLogout }) {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          <NavLink to="/" end className={navClass}>
-            Home
-          </NavLink>
-          <NavLink to="/dashboard" className={navClass}>
-            Dashboard
-          </NavLink>
           <NavLink to="/donation" className={navClass}>
             Donation
           </NavLink>
@@ -98,12 +92,6 @@ export default function SiteNavbar({ user, onLogout }) {
       {mobileOpen && (
         <div className="border-t border-slate-200 bg-white px-4 py-4 md:hidden sm:px-6">
           <div className="space-y-2">
-            <NavLink to="/" end className={navClass} onClick={closeMenu}>
-              Home
-            </NavLink>
-            <NavLink to="/dashboard" className={navClass} onClick={closeMenu}>
-              Dashboard
-            </NavLink>
             <NavLink to="/donation" className={navClass} onClick={closeMenu}>
               Donation
             </NavLink>
