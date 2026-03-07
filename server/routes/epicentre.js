@@ -28,7 +28,7 @@ function getDistance(a, b) { // geojson positions are (lon, lat)
 
 
 async function getEvents() {
-    const url = "https://eonet.gsfc.nasa.gov/api/v3/events?limit=10";
+    const url = "https://eonet.gsfc.nasa.gov/api/v3/events?limit=1";
 
     try {
         const response = await fetch(url);
