@@ -56,16 +56,6 @@ export default function Donation() {
   const [loading, setLoading] = useState(false);
   const [triggeringPayout, setTriggeringPayout] = useState(false);
   const [payoutResult, setPayoutResult] = useState(null);
-  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
-  const [selectedInteractionIds, setSelectedInteractionIds] = useState([]);
-  const [approvingPayouts, setApprovingPayouts] = useState(false);
-  const [rejectingPayouts, setRejectingPayouts] = useState(false);
-
-  const pendingPayoutItems = useMemo(
-    () =>
-      (payoutResult?.payoutSummary?.results ?? []).filter((item) => item?.pending && item?.interactionId),
-    [payoutResult]
-  );
 
   useEffect(() => {
     if (!user) {
@@ -194,10 +184,7 @@ export default function Donation() {
       });
 
       if (pendingCount > 0) {
-        const initialIds = (data?.payoutSummary?.results ?? [])
-          .filter((item) => item?.pending && item?.interactionId)
-          .map((item) => item.interactionId);
-        setSelectedInteractionIds(initialIds);
+        // Payout approvals are now handled in the Wallet tab
       }
     } catch {
       setStatus({
@@ -207,173 +194,6 @@ export default function Donation() {
       });
     } finally {
       setTriggeringPayout(false);
-    }
-  };
-
-  const openApprovalModal = () => {
-    const initialIds = pendingPayoutItems.map((item) => item.interactionId);
-    setSelectedInteractionIds(initialIds);
-    setApprovalModalOpen(true);
-  };
-
-  const closeApprovalModal = () => {
-    if (approvingPayouts || rejectingPayouts) {
-      return;
-    }
-    setApprovalModalOpen(false);
-  };
-
-  const toggleInteractionSelection = (interactionId) => {
-    setSelectedInteractionIds((current) => {
-      if (current.includes(interactionId)) {
-        return current.filter((item) => item !== interactionId);
-      }
-      return [...current, interactionId];
-    });
-  };
-
-  const markRejectedInteractions = (rejectedInteractionIds) => {
-    const rejectedSet = new Set(rejectedInteractionIds);
-    setPayoutResult((current) => {
-      if (!current?.payoutSummary?.results) return current;
-
-      const nextResults = current.payoutSummary.results.map((item) => {
-        if (!item?.interactionId || !rejectedSet.has(item.interactionId)) {
-          return item;
-        }
-
-        return {
-          ...item,
-          pending: false,
-          success: false,
-          error: "Payout rejected from approval modal.",
-        };
-      });
-
-      return {
-        ...current,
-        payoutSummary: {
-          ...current.payoutSummary,
-          ...recalculatePayoutSummary(nextResults),
-          results: nextResults,
-        },
-      };
-    });
-  };
-
-  const handleApproveSelected = async () => {
-    const interactionIds = [...new Set(selectedInteractionIds.filter(Boolean))];
-    if (interactionIds.length === 0) {
-      setStatus({
-        variant: "destructive",
-        title: "No recipients selected",
-        description: "Select at least one pending payout to approve.",
-      });
-      return;
-    }
-
-    setApprovingPayouts(true);
-    setStatus(null);
-    try {
-      const response = await fetch("/payments/payout-approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interactionIds }),
-      });
-      const data = await parseJsonSafe(response);
-
-      if (!response.ok) {
-        setStatus({
-          variant: "destructive",
-          title: "Unable to prepare approvals",
-          description: data?.error ?? "Failed to prepare payout approvals.",
-        });
-        return;
-      }
-
-      const readyItems = (data?.results ?? []).filter((item) => item?.status === "pending");
-      let openedCount = 0;
-      let blockedCount = 0;
-
-      for (const item of readyItems) {
-        const popupUrl = String(item?.popupUrl ?? item?.approvalUrl ?? "").trim();
-        if (!popupUrl) continue;
-        const popupWindow = window.open(popupUrl, "_blank", "popup=yes,width=540,height=760");
-        if (popupWindow) {
-          openedCount += 1;
-        } else {
-          blockedCount += 1;
-        }
-      }
-
-      setStatus({
-        variant: blockedCount > 0 ? "destructive" : "default",
-        title: blockedCount > 0 ? "Some popups were blocked" : "Approval popups opened",
-        description:
-          blockedCount > 0
-            ? `Opened ${openedCount} approval popup(s). ${blockedCount} were blocked by the browser.`
-            : `Opened ${openedCount} approval popup(s).`,
-      });
-    } catch {
-      setStatus({
-        variant: "destructive",
-        title: "Unable to reach server",
-        description: "Please check your connection and try again.",
-      });
-    } finally {
-      setApprovingPayouts(false);
-    }
-  };
-
-  const handleRejectSelected = async () => {
-    const interactionIds = [...new Set(selectedInteractionIds.filter(Boolean))];
-    if (interactionIds.length === 0) {
-      setStatus({
-        variant: "destructive",
-        title: "No recipients selected",
-        description: "Select at least one pending payout to reject.",
-      });
-      return;
-    }
-
-    setRejectingPayouts(true);
-    setStatus(null);
-    try {
-      const response = await fetch("/payments/payout-reject", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ interactionIds }),
-      });
-      const data = await parseJsonSafe(response);
-
-      if (!response.ok) {
-        setStatus({
-          variant: "destructive",
-          title: "Unable to reject payouts",
-          description: data?.error ?? "Failed to reject selected payouts.",
-        });
-        return;
-      }
-
-      const rejectedInteractionIds = data?.rejectedInteractionIds ?? [];
-      if (rejectedInteractionIds.length > 0) {
-        markRejectedInteractions(rejectedInteractionIds);
-      }
-
-      setSelectedInteractionIds((current) => current.filter((id) => !rejectedInteractionIds.includes(id)));
-      setStatus({
-        variant: "default",
-        title: "Payouts rejected",
-        description: `Rejected ${rejectedInteractionIds.length} payout(s).`,
-      });
-    } catch {
-      setStatus({
-        variant: "destructive",
-        title: "Unable to reach server",
-        description: "Please check your connection and try again.",
-      });
-    } finally {
-      setRejectingPayouts(false);
     }
   };
 
@@ -502,103 +322,11 @@ export default function Donation() {
                   <span className="font-semibold text-slate-800">Pending approvals:</span>{" "}
                   {payoutResult?.payoutSummary?.pendingCount ?? 0}
                 </p>
-
-                {pendingPayoutItems.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    <p className="font-semibold text-slate-800">Approval actions</p>
-                    <p>{pendingPayoutItems.length} recipient(s) require approval.</p>
-                    <Button type="button" onClick={openApprovalModal} className="h-9 rounded-lg px-3 text-xs">
-                      Manage approvals in popup modal
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
           </CardContent>
         </Card>
       </main>
-
-      {approvalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
-          <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Pending payout approvals</h2>
-                <p className="text-sm text-slate-600">
-                  Select one or more recipients, then approve or reject in one flow.
-                </p>
-              </div>
-              <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" onClick={closeApprovalModal}>
-                Close
-              </Button>
-            </div>
-
-            <div className="mb-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 rounded-lg px-3 text-xs"
-                onClick={() => setSelectedInteractionIds(pendingPayoutItems.map((item) => item.interactionId))}
-              >
-                Select all
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 rounded-lg px-3 text-xs"
-                onClick={() => setSelectedInteractionIds([])}
-              >
-                Clear selection
-              </Button>
-            </div>
-
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-              {pendingPayoutItems.map((item) => {
-                const checked = selectedInteractionIds.includes(item.interactionId);
-                return (
-                  <label
-                    key={item.interactionId}
-                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleInteractionSelection(item.interactionId)}
-                      className="mt-1"
-                    />
-                    <div className="text-sm text-slate-700">
-                      <p className="font-semibold text-slate-900">{item?.username ?? "Recipient"}</p>
-                      <p>
-                        Amount: ${item?.paymentDollars ?? "-"} | Stage: {item?.stage ?? "-"}
-                      </p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                onClick={handleApproveSelected}
-                disabled={approvingPayouts || rejectingPayouts}
-                className="h-10 rounded-lg px-4 text-sm"
-              >
-                {approvingPayouts ? "Opening approvals..." : "Approve selected"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleRejectSelected}
-                disabled={approvingPayouts || rejectingPayouts}
-                className="h-10 rounded-lg px-4 text-sm"
-              >
-                {rejectingPayouts ? "Rejecting..." : "Reject selected"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <SiteFooter />
     </div>
