@@ -158,9 +158,10 @@ async function getWallet(url) {
 }
 
 r.get("/pay-single", async(req, res) => {
-    // post request data
+    // changes these to inputs from front end, via post request / add variables to help urself redirect from the final page
     let amount = '10000'; //note that amount is in cents
     const user_wallet_url = "https://ilp.interledger-test.dev/nice-donator";
+    // end of things to change
     
     let metadata = {description: `Incoming donation of $${amount/10**2}`};
     try {
@@ -223,6 +224,10 @@ r.get("/complete-single-payment/:uid", async (req, res) => {
     } catch (error) {
         res.json(error);
     }
+
+    //change here to redirect back to our app
+
+    //end of changes
 });
 
 /* recurring is not working
