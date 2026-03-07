@@ -3,6 +3,8 @@ const router = Router()
 
 
 
+import { createClient } from '@clickhouse/client'
+
 
 
 
@@ -64,7 +66,18 @@ router.get('/', async (req, res) => {
     
     
     console.log(getDistance(points[0].coordinates, points[1].coordinates));
-    
+
+    const client = createClient({
+        url: `https://${process.env.CH_HOST}:${process.env.CH_PORT ?? 8443}`,
+        username: 'default',
+        password: process.env.CH_PASSWORD,
+        database: process.env.CH_DATABASE ?? "default"
+    })
+    const rows = await client.query({
+        query: 'SELECT * FROM users;',
+        format: 'JSONEachRow',
+    })
+    console.log('Result: ', await rows.json())
 });
 
 export default router
