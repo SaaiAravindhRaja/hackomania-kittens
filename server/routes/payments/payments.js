@@ -463,7 +463,7 @@ async function initiateDonationRequest({ donorWalletAddressOrUrl, amountCents, d
   console.log(donorWallet, fundManagerWallet);
   const incomingPayment = await createIncomingPayment(client, fundManagerWallet, amount, metadata)
   const quote = await createQuote(client, fundManagerWallet, donorWallet, incomingPayment)
-  
+
   const [id, outgoingPaymentGrant] = await createOutgoingPaymentGrant(client, donorWallet, quote)
 
   pendingOutgoingPaymentGrants[id] = { outgoingGrant: outgoingPaymentGrant, donorWallet, quote, donationContext }
@@ -977,6 +977,7 @@ export async function runDisasterPayouts(affectedUsers = [], event = {}) {
         success: true,
         outgoingPaymentId: outgoingPayment.id ?? null,
       })
+
       await recordPayoutEvent({
         disasterEventId: event.id ?? '',
         disasterEventTitle: event.title ?? '',
@@ -1227,7 +1228,7 @@ r.get('/complete-single-payment/:uid', async (req, res) => {
       outgoingPaymentId: outgoingPayment.id ?? '',
     })
 
-      //add to running total
+    //add to running total
     try {
       console.log(`Added ${Number(donationContext?.amountCents ?? 0)} to running total`);
       await updateRunningTotal(clickhouseClient, donationContext?.userId, Number(donationContext?.amountCents ?? 0));
@@ -1357,6 +1358,9 @@ r.get('/complete-payout-grant/:interactionId', async (req, res) => {
       success: true,
       outgoingPaymentId: result.outgoingPayment?.id ?? '',
     })
+
+    console.log('test', result.amountCents);
+    await updateRunningTotal(clickhouseClient, result.user?.user_id, Number(-result.amountCents));
 
     if (!shouldReturnJson(req)) {
       return res.redirect(

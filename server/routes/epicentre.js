@@ -16,7 +16,7 @@ const router = Router()
 // Config
 // ---------------------------------------------------------------------------
 
-const MAX_RADIUS_KM    = 2000  // beyond this → no payment
+const MAX_RADIUS_KM = 2000  // beyond this → no payment
 const MAX_PAYMENT_CENTS = 10000 // $100.00 at scale 2 — full payment for those at epicenter
 
 // ---------------------------------------------------------------------------
@@ -268,6 +268,8 @@ router.post('/trigger-payouts', async (req, res) => {
         message: 'No eligible recipients found for this event.',
       })
     }
+
+
 
     const payoutSummary = await runDisasterPayouts(affectedUsers, {
       id: event.id,
