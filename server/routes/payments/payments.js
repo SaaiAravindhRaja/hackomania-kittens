@@ -199,16 +199,20 @@ async function getAuthenticatedClient() {
 
     // Support env-var key for serverless (Vercel), fall back to file
     let privateKey = String(process.env.FUNDMANAGER_PRIVATE_KEY_CONTENT ?? '').trim()
+    let keySource = 'env'
     if (!privateKey) {
       const keyPath = process.env.FUNDMANAGER_PRIVATE_KEY_PATH
         ? path.resolve(process.env.FUNDMANAGER_PRIVATE_KEY_PATH)
         : path.resolve(process.cwd(), 'private.key')
       privateKey = (await readFile(keyPath, 'utf8')).trim()
+      keySource = keyPath
     }
 
     if (!privateKey) {
       throw new Error('No private key found. Set FUNDMANAGER_PRIVATE_KEY_CONTENT or provide private.key file.')
     }
+
+    console.log('[CLIENT_INIT] keyId:', keyId, '| walletUrl:', walletAddressUrl, '| keySource:', keySource, '| keyLen:', privateKey.length)
 
     return createAuthenticatedClient({
       keyId,
