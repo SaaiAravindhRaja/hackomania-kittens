@@ -14,6 +14,15 @@ app.use('/api', apiRoutes);
 app.use('/payments', payments);
 app.use('/epicentre', epicentreRoutes);
 const client = getClient();
-await createTable(client);
+try {
+  await createTable(client);
+} catch (err) {
+  console.error('ClickHouse setup failed (server will still start):', err.message);
+}
 
-app.listen(8009, () => console.log('express running on > 8009'));
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT ?? 8009
+  app.listen(PORT, () => console.log(`express running on > ${PORT}`))
+}
+
+export default app
