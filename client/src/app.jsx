@@ -14,21 +14,18 @@ import Contribute from './pages/contribute.jsx'
 import Disasters from './pages/disasters.jsx'
 import Payouts from './pages/payouts.jsx'
 import Transactions from './pages/transactions.jsx'
-import Donation from './pages/donation.jsx'
-import WalletPage from './pages/wallet.jsx'
 
-// Wraps with AppShell sidebar — for saai-style pages
 function ProtectedRoute({ children }) {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-emerald-400" />
+      </div>
+    )
+  }
   if (!user) return <Navigate to="/login" replace />
   return <AppShell>{children}</AppShell>
-}
-
-// Auth-only check — for pages that manage their own layout (donation, wallet)
-function RequireAuth({ children }) {
-  const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
-  return children
 }
 
 export default function App() {
@@ -48,10 +45,6 @@ export default function App() {
       <Route path="/disasters" element={<ProtectedRoute><Disasters /></ProtectedRoute>} />
       <Route path="/payouts" element={<ProtectedRoute><Payouts /></ProtectedRoute>} />
       <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-
-      {/* Integration pages — manage their own layout */}
-      <Route path="/donation" element={<RequireAuth><Donation /></RequireAuth>} />
-      <Route path="/wallet" element={<RequireAuth><WalletPage /></RequireAuth>} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />

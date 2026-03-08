@@ -10,6 +10,9 @@
     "build": "vite build --config vite.config.js --emptyOutDir --outDir ../dist/public",
     "start": "node server/index.js"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
