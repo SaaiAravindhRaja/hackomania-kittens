@@ -30,6 +30,16 @@ async function recordAuthEvent(event) {
 // ── Health ────────────────────────────────────────────────────
 router.get('/health', (req, res) => res.json({ status: 'ok' }))
 
+router.get('/health/db', async (req, res) => {
+  try {
+    const result = await client.query({ query: 'SELECT 1 AS n', format: 'JSONEachRow' })
+    await result.json()
+    res.json({ status: 'ok', clickhouse: 'connected' })
+  } catch (err) {
+    res.status(500).json({ status: 'error', clickhouse: err.message })
+  }
+})
+
 // ── Register ──────────────────────────────────────────────────
 // POST /api/auth/register
 // Body: { username, email, password, country, postalcode, walletAddress }
