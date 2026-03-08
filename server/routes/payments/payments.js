@@ -228,17 +228,10 @@ async function getAuthenticatedClient() {
 }
 
 function logOpenPaymentsError(error) {
-  if (error instanceof OpenPaymentsClientError) {
-    console.log('[OP_ERR] message:', error.message)
-    console.log('[OP_ERR] description:', error.description)
-    console.log('[OP_ERR] status:', error.status)
-    console.log('[OP_ERR] code:', error.code)
-    console.log('[OP_ERR] validationErrors:', JSON.stringify(error.validationErrors))
-    console.log('[OP_ERR] details:', JSON.stringify(error.details))
-  } else {
-    console.log('[OP_ERR] non-OP error:', error?.message, error?.name)
-  }
-  console.log('[OP_ERR] stack:', error?.stack)
+  const info = error instanceof OpenPaymentsClientError
+    ? { type: 'OpenPaymentsClientError', message: error.message, description: error.description, status: error.status, code: error.code, validationErrors: error.validationErrors, details: error.details }
+    : { type: error?.constructor?.name ?? 'Error', message: error?.message, stack: error?.stack }
+  console.error('[OP_ERR]', JSON.stringify(info, null, 2))
 }
 
 async function getWallet(client, url) {
