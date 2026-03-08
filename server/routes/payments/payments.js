@@ -76,7 +76,7 @@ function getReceiverWalletUrl() {
   if (!walletUrl) {
     throw new Error('RECEIVER_WALLET_ADDRESS_URL is not configured.')
   }
-  return walletUrl
+  return normalizeWalletUrl(walletUrl)
 }
 
 function getFundManagerWalletUrl() {
@@ -84,7 +84,7 @@ function getFundManagerWalletUrl() {
   if (!walletUrl) {
     throw new Error('WALLET_ADDRESS_URL is not configured.')
   }
-  return walletUrl
+  return normalizeWalletUrl(walletUrl)
 }
 
 function getSafeReceiverWalletUrl() {
