@@ -398,7 +398,7 @@ export async function getUserByEmail(client, email) {
 export async function getUserById(client, userId) {
   const result = await client.query({
     query: `
-      SELECT user_id, username, email, country, postal_code, wallet_address, latitude, longitude, created_at
+      SELECT user_id, username, email, country, postal_code, wallet_address, latitude, longitude, created_at, donated_total_cents
       FROM users WHERE user_id = {userId:UUID} LIMIT 1
     `,
     query_params: { userId },
@@ -439,4 +439,20 @@ export async function listUsers(client, limit = 50) {
     format: "JSONEachRow",
   });
   return result.json();
+}
+
+export async function updateRunningTotal(client, userId, increment) {
+  const user = await getUserById(client, userId);
+  console.log(user);
+
+  console.log(user.donated_total_cents + increment);
+  const result = await client.query({
+    query: `ALTER TABLE users
+    UPDATE donated_total_cents = {running_total:Int64}
+    WHERE user_id = {userId:UUID}
+    SETTINGS mutations_sync = 2
+    `, query_params: { userId, running_total: user.donated_total_cents + increment},
+  });
+
+  return getUserById(client, userId);
 }

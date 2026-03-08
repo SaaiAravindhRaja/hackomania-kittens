@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { isFinalizedGrantWithAccessToken, createAuthenticatedClient, OpenPaymentsClientError } from '@interledger/open-payments'
 import { randomUUID } from 'crypto'
-import { getClient, getUserById, logDonationEvent, logPayoutEvent } from '../../clickhouse_auth.js'
+import { getClient, getUserById, logDonationEvent, logPayoutEvent, updateRunningTotal } from '../../clickhouse_auth.js'
 
 const r = Router()
 const clickhouseClient = getClient()
@@ -227,9 +227,9 @@ function logOpenPaymentsError(error) {
     console.log(error.code)
     console.log(error.validationErrors)
     console.log(error.details)
-    return
   }
 
+  console.log(error.stack);
   console.log(error)
 }
 
@@ -460,8 +460,10 @@ async function initiateDonationRequest({ donorWalletAddressOrUrl, amountCents, d
   const amount = String(amountCents)
   const metadata = { description: `Incoming donation of $${toDollars(amountCents)}` }
 
+  console.log(donorWallet, fundManagerWallet);
   const incomingPayment = await createIncomingPayment(client, fundManagerWallet, amount, metadata)
   const quote = await createQuote(client, fundManagerWallet, donorWallet, incomingPayment)
+  
   const [id, outgoingPaymentGrant] = await createOutgoingPaymentGrant(client, donorWallet, quote)
 
   pendingOutgoingPaymentGrants[id] = { outgoingGrant: outgoingPaymentGrant, donorWallet, quote, donationContext }
@@ -1038,7 +1040,7 @@ r.get('/pay-single', async (req, res) => {
 
     return res.redirect(302, donation.redirectUrl)
   } catch (error) {
-    logOpenPaymentsError(error)
+    logOpenPaymentsError(error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'Unable to start donation.' })
   }
 })
@@ -1224,6 +1226,14 @@ r.get('/complete-single-payment/:uid', async (req, res) => {
       amountCents: Number(finalizedContext?.amountCents ?? donationContext?.amountCents ?? 0),
       outgoingPaymentId: outgoingPayment.id ?? '',
     })
+
+      //add to running total
+    try {
+      console.log(`Added ${Number(donationContext?.amountCents ?? 0)} to running total`);
+      await updateRunningTotal(clickhouseClient, donationContext?.userId, Number(donationContext?.amountCents ?? 0));
+    } catch (error) {
+      logOpenPaymentsError(error);
+    }
 
     const redirectUrl = buildDonationReturnUrl('success', {
       grantId: req.params.uid,
