@@ -3,12 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 
 import SiteFooter from "@/components/site-footer";
 import SiteNavbar from "@/components/site-navbar";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormField, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { clearStoredUser, getStoredUser, setStoredUser } from "@/lib/auth-session";
 
 const API_BASE = "/api";
@@ -17,6 +11,9 @@ const walletPattern = /^\$[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/[a-zA-Z0-9._~-]+$/;
 function parseJsonSafe(response) {
   return response.json().catch(() => null);
 }
+
+const inputCls =
+  "w-full rounded-xl border border-slate-700/80 bg-slate-800/50 px-4 py-3 text-sm text-white placeholder-slate-600 transition-colors focus:border-emerald-500/70 focus:bg-slate-800 focus:outline-none";
 
 export default function WalletPage() {
   const navigate = useNavigate();
@@ -109,11 +106,7 @@ export default function WalletPage() {
         if (message.toLowerCase().includes("wallet")) {
           setError(message);
         }
-        setStatus({
-          variant: "destructive",
-          title: "Wallet update failed",
-          description: message,
-        });
+        setStatus({ variant: "destructive", title: "Wallet update failed", description: message });
         return;
       }
 
@@ -168,11 +161,7 @@ export default function WalletPage() {
   const handleApproveSelected = async () => {
     const interactionIds = [...new Set(selectedInteractionIds.filter(Boolean))];
     if (interactionIds.length === 0) {
-      setStatus({
-        variant: "destructive",
-        title: "No recipients selected",
-        description: "Select at least one pending payout to approve.",
-      });
+      setStatus({ variant: "destructive", title: "No recipients selected", description: "Select at least one pending payout to approve." });
       return;
     }
 
@@ -187,11 +176,7 @@ export default function WalletPage() {
       const data = await parseJsonSafe(response);
 
       if (!response.ok) {
-        setStatus({
-          variant: "destructive",
-          title: "Unable to prepare approvals",
-          description: data?.error ?? "Failed to prepare payout approvals.",
-        });
+        setStatus({ variant: "destructive", title: "Unable to prepare approvals", description: data?.error ?? "Failed to prepare payout approvals." });
         return;
       }
 
@@ -219,14 +204,9 @@ export default function WalletPage() {
             : `Opened ${openedCount} approval popup(s). Return here once approvals are finalized to refresh the list.`,
       });
 
-      // Also refresh the pending list
       fetchPendingPayouts();
     } catch {
-      setStatus({
-        variant: "destructive",
-        title: "Unable to reach server",
-        description: "Please check your connection and try again.",
-      });
+      setStatus({ variant: "destructive", title: "Unable to reach server", description: "Please check your connection and try again." });
     } finally {
       setApprovingPayouts(false);
     }
@@ -235,11 +215,7 @@ export default function WalletPage() {
   const handleRejectSelected = async () => {
     const interactionIds = [...new Set(selectedInteractionIds.filter(Boolean))];
     if (interactionIds.length === 0) {
-      setStatus({
-        variant: "destructive",
-        title: "No recipients selected",
-        description: "Select at least one pending payout to reject.",
-      });
+      setStatus({ variant: "destructive", title: "No recipients selected", description: "Select at least one pending payout to reject." });
       return;
     }
 
@@ -254,30 +230,17 @@ export default function WalletPage() {
       const data = await parseJsonSafe(response);
 
       if (!response.ok) {
-        setStatus({
-          variant: "destructive",
-          title: "Unable to reject payouts",
-          description: data?.error ?? "Failed to reject selected payouts.",
-        });
+        setStatus({ variant: "destructive", title: "Unable to reject payouts", description: data?.error ?? "Failed to reject selected payouts." });
         return;
       }
 
       const rejectedInteractionIds = data?.rejectedInteractionIds ?? [];
-
       setSelectedInteractionIds((current) => current.filter((id) => !rejectedInteractionIds.includes(id)));
-      setStatus({
-        variant: "default",
-        title: "Payouts rejected",
-        description: `Rejected ${rejectedInteractionIds.length} payout(s).`,
-      });
+      setStatus({ variant: "default", title: "Payouts rejected", description: `Rejected ${rejectedInteractionIds.length} payout(s).` });
 
       fetchPendingPayouts();
     } catch {
-      setStatus({
-        variant: "destructive",
-        title: "Unable to reach server",
-        description: "Please check your connection and try again.",
-      });
+      setStatus({ variant: "destructive", title: "Unable to reach server", description: "Please check your connection and try again." });
     } finally {
       setRejectingPayouts(false);
     }
@@ -288,40 +251,46 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-[#070a0d] text-white">
       <SiteNavbar user={user} onLogout={handleLogout} />
 
       <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
+        {/* Header */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 px-6 py-6">
           <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">Wallet settings</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Update your wallet address</h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Update your wallet address</h1>
+          <p className="mt-2 text-sm text-slate-400 sm:text-base">
             Keep your Interledger wallet up to date so donations and payouts can use the right account.
           </p>
         </section>
 
+        {/* Status alert */}
         {status && (
-          <Alert
-            variant={status.variant}
-            className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              status.variant === "destructive"
+                ? "border-red-800/60 bg-red-950/40 text-red-300"
+                : "border-emerald-800/40 bg-emerald-500/[0.06] text-emerald-400"
+            }`}
           >
-            <AlertTitle>{status.title}</AlertTitle>
-            <AlertDescription>{status.description}</AlertDescription>
-          </Alert>
+            <p className="font-semibold">{status.title}</p>
+            <p className="mt-0.5 text-xs opacity-80">{status.description}</p>
+          </div>
         )}
 
-        <Card className="border-slate-200 bg-white shadow-sm">
-          <CardHeader className="gap-1">
-            <CardTitle>Wallet details</CardTitle>
-            <CardDescription>Update the wallet linked to your account.</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-6">
-            <Form className="space-y-4" onSubmit={handleSubmit} noValidate>
-              <FormField>
-                <Label htmlFor="walletAddress" className="text-slate-700">
+        {/* Wallet form */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60">
+          <div className="border-b border-slate-800 px-6 py-4">
+            <h2 className="text-base font-semibold text-white">Wallet details</h2>
+            <p className="mt-0.5 text-sm text-slate-500">Update the wallet linked to your account.</p>
+          </div>
+          <div className="p-6">
+            <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-[0.1em] text-slate-400">
                   Interledger wallet address
-                </Label>
-                <Input
+                </label>
+                <input
                   id="walletAddress"
                   name="walletAddress"
                   value={walletAddress}
@@ -330,131 +299,134 @@ export default function WalletPage() {
                     setError("");
                   }}
                   placeholder="$ilp.interledger-test.dev/username"
-                  aria-invalid={Boolean(error)}
-                  aria-describedby="wallet-update-error"
-                  className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
+                  className={inputCls}
                 />
-                <FormMessage id="wallet-update-error">{error || " "}</FormMessage>
-              </FormField>
+                <p className="min-h-[16px] text-xs text-red-400">{error || " "}</p>
+              </div>
 
-              <div className="flex flex-wrap gap-3">
-                <Button type="submit" disabled={loading} className="h-11 rounded-xl px-5">
+              <div className="flex flex-wrap gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-emerald-500 hover:shadow-[0_0_24px_rgba(52,211,153,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   {loading ? "Updating wallet..." : "Update wallet"}
-                </Button>
-                <Button asChild variant="outline" className="h-11 rounded-xl px-5">
-                  <Link to="/dashboard">Back to dashboard</Link>
-                </Button>
+                </button>
+                <Link
+                  to="/dashboard"
+                  className="flex items-center justify-center rounded-xl border border-slate-700 px-5 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/60 hover:text-white"
+                >
+                  Back to dashboard
+                </Link>
               </div>
-            </Form>
-          </CardContent>
-        </Card>
+            </form>
+          </div>
+        </div>
 
-        {/* Global Payout Approvals */}
-        <Card className="border-slate-200 bg-white shadow-sm mt-6">
-          <CardHeader className="gap-1">
-            <CardTitle>Disaster payout approvals</CardTitle>
-            <CardDescription>
-              Manage pending payout requests triggered by events.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pb-6">
-            <div className="space-y-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-slate-700">
-                    <span className="font-semibold text-slate-800">Pending approvals:</span>{" "}
-                    {fetchingPending ? "Loading..." : pendingPayouts.length}
-                  </p>
-                  <Button
+        {/* Payout approvals */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60">
+          <div className="border-b border-slate-800 px-6 py-4">
+            <h2 className="text-base font-semibold text-white">Disaster payout approvals</h2>
+            <p className="mt-0.5 text-sm text-slate-500">Manage pending payout requests triggered by events.</p>
+          </div>
+          <div className="p-6">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-400">
+                  <span className="font-semibold text-slate-200">Pending approvals:</span>{" "}
+                  {fetchingPending ? "Loading..." : pendingPayouts.length}
+                </p>
+                <button
+                  type="button"
+                  onClick={fetchPendingPayouts}
+                  disabled={fetchingPending}
+                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:border-slate-600 hover:text-white disabled:opacity-50"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              {pendingPayouts.length > 0 && (
+                <div className="mt-4">
+                  <button
                     type="button"
-                    variant="outline"
-                    onClick={fetchPendingPayouts}
-                    disabled={fetchingPending}
-                    className="h-8 rounded-lg px-3 text-xs"
+                    onClick={openApprovalModal}
+                    className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-emerald-500 sm:w-auto"
                   >
-                    Refresh
-                  </Button>
+                    Manage approvals in popup modal
+                  </button>
                 </div>
-
-                {pendingPayouts.length > 0 && (
-                  <div className="mt-4">
-                    <Button type="button" onClick={openApprovalModal} className="h-9 rounded-lg px-4 text-sm w-full sm:w-auto">
-                      Manage approvals in popup modal
-                    </Button>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
 
+      {/* Approval modal */}
       {approvalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
-          <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-            <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Pending payout approvals</h2>
-                <p className="text-sm text-slate-600">
+                <h2 className="text-lg font-semibold text-white">Pending payout approvals</h2>
+                <p className="mt-0.5 text-sm text-slate-400">
                   Select one or more of your own pending payouts to approve or reject.
                 </p>
               </div>
-              <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" onClick={closeApprovalModal}>
+              <button
+                type="button"
+                onClick={closeApprovalModal}
+                className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
+              >
                 Close
-              </Button>
+              </button>
             </div>
 
             <div className="mb-3 flex flex-wrap gap-2">
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="h-8 rounded-lg px-3 text-xs"
                 onClick={() => setSelectedInteractionIds(
                   pendingPayouts
                     .filter((item) => item?.userId === user?.user_id || item?.recipientWalletAddress === walletAddress)
                     .map((item) => item.interactionId)
                 )}
+                className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
               >
                 Select all
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant="outline"
-                className="h-8 rounded-lg px-3 text-xs"
                 onClick={() => setSelectedInteractionIds([])}
+                className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
               >
                 Clear selection
-              </Button>
+              </button>
             </div>
 
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
               {pendingPayouts.map((item) => {
                 const isOwnPayout = item?.userId === user?.user_id || item?.recipientWalletAddress === walletAddress;
-
-                // Hide payouts that belong to other recipients
                 if (!isOwnPayout) return null;
-
                 const checked = selectedInteractionIds.includes(item.interactionId);
                 return (
                   <button
                     key={item.interactionId}
                     type="button"
                     onClick={() => toggleInteractionSelection(item.interactionId)}
-                    className={`flex w-full cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors ${checked
-                      ? 'border-indigo-600 bg-indigo-50/50'
-                      : 'border-slate-200 bg-slate-50 hover:border-indigo-200 hover:bg-slate-100'
-                      }`}
+                    className={`flex w-full cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors ${
+                      checked
+                        ? "border-emerald-600 bg-emerald-500/10"
+                        : "border-slate-700 bg-slate-800/40 hover:border-slate-600"
+                    }`}
                   >
-                    <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'}`}>
-                      {checked && (
-                        <div className="h-2 w-2 rounded-full bg-white" />
-                      )}
+                    <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? "border-emerald-500 bg-emerald-500" : "border-slate-600 bg-slate-800"}`}>
+                      {checked && <div className="h-2 w-2 rounded-full bg-white" />}
                     </div>
-                    <div className="text-sm text-slate-700">
-                      <p className={`font-semibold ${checked ? 'text-indigo-900' : 'text-slate-900'}`}>
+                    <div className="text-sm">
+                      <p className={`font-semibold ${checked ? "text-emerald-300" : "text-slate-200"}`}>
                         {item?.username ?? "Recipient"} for {item?.eventTitle ?? "Event"}
                       </p>
-                      <p className={checked ? 'text-indigo-700/80' : 'text-slate-600'}>
+                      <p className={checked ? "text-emerald-400/80" : "text-slate-500"}>
                         Amount: ${item?.amountDollars ?? "-"} | Stage: {item?.stage ?? "-"}
                       </p>
                     </div>
@@ -464,23 +436,22 @@ export default function WalletPage() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button
+              <button
                 type="button"
                 onClick={handleApproveSelected}
                 disabled={approvingPayouts || rejectingPayouts}
-                className="h-10 rounded-lg px-4 text-sm"
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {approvingPayouts ? "Opening approvals..." : "Approve selected"}
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant="outline"
                 onClick={handleRejectSelected}
                 disabled={approvingPayouts || rejectingPayouts}
-                className="h-10 rounded-lg px-4 text-sm"
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-slate-600 hover:text-white disabled:opacity-60"
               >
                 {rejectingPayouts ? "Rejecting..." : "Reject selected"}
-              </Button>
+              </button>
             </div>
           </div>
         </div>

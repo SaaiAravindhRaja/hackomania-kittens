@@ -1,227 +1,223 @@
-import React, { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, CheckCircle2, ShieldCheck, Wallet, Waves } from "lucide-react";
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, TrendingUp, Zap, Globe, Activity } from 'lucide-react'
 
-import SiteFooter from "@/components/site-footer";
-import SiteNavbar from "@/components/site-navbar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { clearStoredUser, getStoredUser } from "@/lib/auth-session";
-
-const trustStats = [
-  { label: "Response readiness", value: "< 6 hrs" },
-  { label: "Transparent records", value: "100%" },
-  { label: "Regional coverage", value: "42 regions" },
-];
-
-const features = [
-  {
-    icon: ShieldCheck,
-    title: "Verification-first operations",
-    description:
-      "Account onboarding and wallet checks ensure funding can be allocated to validated recipients with clear controls.",
-  },
-  {
-    icon: Waves,
-    title: "Disaster-aware funding logic",
-    description:
-      "Prepared for event-driven workflows where fund release can follow geographic and severity signals from trusted data feeds.",
-  },
-  {
-    icon: Wallet,
-    title: "Open payment rails",
-    description:
-      "Interoperable wallet architecture supports faster payout execution and clean auditability across transactions.",
-  },
-];
-
-const recentUpdates = [
-  { title: "Emergency pool rebalanced", detail: "Southeast Asia reserve increased by 12% this week." },
-  { title: "Wallet verification SLA improved", detail: "Average onboarding verification time reduced to 9 minutes." },
-  { title: "Donor reporting refreshed", detail: "Weekly impact summaries now include allocation snapshots." },
-];
+function StatPill({ label, value, accent }) {
+  return (
+    <div className="flex flex-col">
+      <span className={`font-mono text-2xl font-bold tabular-nums ${accent}`}>{value}</span>
+      <span className="mt-0.5 text-xs uppercase tracking-[0.15em] text-slate-500">{label}</span>
+    </div>
+  )
+}
 
 export default function Home() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(() => getStoredUser());
+  const [stats, setStats] = useState(null)
 
-  const primaryAction = useMemo(() => {
-    if (user) {
-      return {
-        label: "Open dashboard",
-        to: "/dashboard",
-      };
-    }
-
-    return {
-      label: "Get started",
-      to: "/register",
-    };
-  }, [user]);
-
-  const handleLogout = () => {
-    clearStoredUser();
-    setUser(null);
-    navigate("/", { replace: true });
-  };
+  useEffect(() => {
+    fetch('/api/stats').then(r => r.json()).then(s => setStats(s)).catch(() => {})
+  }, [])
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <SiteNavbar user={user} onLogout={handleLogout} />
+    <div className="grain-overlay relative min-h-screen overflow-hidden bg-[#070a0d] text-white">
+      {/* Ambient glows */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute left-[15%] top-[20%] h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/[0.055] blur-[130px]" />
+        <div className="absolute right-[10%] bottom-[20%] h-[500px] w-[500px] rounded-full bg-sky-600/[0.04] blur-[120px]" />
+        <div className="absolute left-[60%] top-[60%] h-[300px] w-[300px] rounded-full bg-emerald-400/[0.03] blur-[80px]" />
+      </div>
 
-      <main>
-        <section className="relative overflow-hidden border-b border-slate-200/80 bg-[linear-gradient(180deg,#f8fbff_0%,#f8fafc_70%)]">
-          <div className="pointer-events-none absolute -top-20 right-0 h-64 w-64 rounded-full bg-sky-200/40 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-16 left-12 h-52 w-52 rounded-full bg-blue-200/30 blur-3xl" />
+      {/* Subtle grid lines */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.015]"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+          backgroundSize: '80px 80px',
+        }}
+      />
 
-          <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 md:py-20 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
-            <div className="space-y-6">
-              <p className="text-xs font-semibold tracking-[0.14em] text-slate-600 uppercase">Finance for resilience</p>
-              <h1 className="max-w-2xl text-4xl leading-tight font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                Fund disaster response with clarity, speed, and accountability.
-              </h1>
-              <p className="max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
-                Kitten Finance is built for donation and relief teams that need trustworthy workflows, transparent
-                records, and reliable payout readiness from day one.
-              </p>
+      <div className="relative z-10">
+        {/* Nav */}
+        <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-7">
+          <div className="flex items-center gap-2.5">
+            <img src="/logo.jpeg" alt="Kitten Finance" className="h-8 w-8 rounded-full object-cover" />
+            <span className="font-mono text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+              kitten finance
+            </span>
+          </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <Button asChild className="h-11 rounded-xl px-5">
-                  <Link to={primaryAction.to}>
-                    {primaryAction.label}
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="h-11 rounded-xl px-5">
-                  <Link to="/login">Sign in</Link>
-                </Button>
-              </div>
+          <div className="flex items-center gap-1.5">
+            <Link
+              to="/login"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-400 transition-all hover:bg-slate-800/80 hover:text-white"
+            >
+              Log in
+            </Link>
+            <Link
+              to="/register"
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-950 transition-all hover:bg-emerald-500 hover:shadow-[0_0_24px_rgba(52,211,153,0.35)]"
+            >
+              Get started <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </header>
 
-              <div className="grid gap-3 pt-2 sm:grid-cols-3">
-                {trustStats.map((item) => (
-                  <Card key={item.label} className="border-slate-200 bg-white/90 shadow-sm">
-                    <CardContent className="space-y-1 py-4">
-                      <p className="text-xl font-semibold text-slate-900">{item.value}</p>
-                      <p className="text-xs text-slate-500">{item.label}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+        {/* Hero */}
+        <section className="mx-auto max-w-6xl px-6 pb-12 pt-12 lg:pt-20">
+          {/* Eyebrow tag */}
+          <div className="mb-8">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-800/40 bg-emerald-500/[0.06] px-3.5 py-1.5 text-xs font-medium text-emerald-400">
+              <Activity className="h-3 w-3" />
+              Powered by Interledger Open Payments
+            </span>
+          </div>
 
-            <Card className="border-slate-200 bg-white/95 shadow-xl shadow-slate-900/5">
-              <CardHeader className="gap-2">
-                <CardTitle className="text-xl">Operational priorities</CardTitle>
-                <CardDescription>
-                  Align funding governance with execution speed before the next critical event.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pb-6">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-800">Prepared allocation pools</p>
-                  <p className="mt-1 text-sm text-slate-600">Segment funds by region and risk profile.</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-800">Verified payout routes</p>
-                  <p className="mt-1 text-sm text-slate-600">Ensure recipients can be reached without friction.</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-800">Real-time visibility</p>
-                  <p className="mt-1 text-sm text-slate-600">Track donation flow and disbursement outcomes clearly.</p>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Headline */}
+          <div className="mb-8 max-w-4xl">
+            <h1 className="leading-[1.06] text-white">
+              <span className="block text-display italic text-5xl font-normal text-slate-100 lg:text-7xl">
+                Community-powered
+              </span>
+              <span className="block text-5xl font-bold text-emerald-400 lg:text-7xl">
+                emergency relief,
+              </span>
+              <span className="block text-display italic text-4xl font-normal text-slate-300 lg:text-6xl">
+                automated.
+              </span>
+            </h1>
+          </div>
+
+          <p className="mb-10 max-w-xl text-base leading-relaxed text-slate-400 lg:text-lg">
+            Pool micro-contributions. Watch the world. When disasters strike,
+            funds move instantly — cross-currency, no banks, zero delays.
+          </p>
+
+          {/* CTAs */}
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/register"
+              className="group flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-950 transition-all duration-300 hover:bg-emerald-500 hover:shadow-[0_0_30px_rgba(52,211,153,0.35)]"
+            >
+              Start contributing
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+            </Link>
+            <Link
+              to="/login"
+              className="flex items-center gap-2 rounded-xl border border-slate-700 px-6 py-3.5 text-sm font-medium text-slate-300 transition-all hover:border-slate-600 hover:bg-slate-800/60 hover:text-white"
+            >
+              View dashboard
+            </Link>
+          </div>
+
+          {/* Live stats bar */}
+          <div className="mt-16 flex flex-wrap items-center gap-x-12 gap-y-5 border-t border-slate-800/70 pt-10">
+            <StatPill
+              label="Total raised"
+              value={`$${Number(stats?.totalContributed || 0).toFixed(0)}`}
+              accent="text-emerald-400"
+            />
+            <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+            <StatPill label="Active funds" value={stats?.fundCount || 0} accent="text-white" />
+            <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+            <StatPill label="Members" value={stats?.memberCount || 0} accent="text-white" />
+            <div className="h-8 w-px bg-slate-800 hidden sm:block" />
+            <StatPill
+              label="Paid out"
+              value={`$${Number(stats?.totalPaidOut || 0).toFixed(0)}`}
+              accent="text-sky-400"
+            />
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
-          <div className="mb-7">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Platform capabilities</h2>
-            <p className="mt-2 max-w-3xl text-sm text-slate-600 sm:text-base">
-              Core components are designed for finance and operations teams managing high-trust donation workflows.
-            </p>
+        {/* How it works */}
+        <section className="mx-auto max-w-6xl px-6 pb-24 pt-4">
+          <div className="mb-10 flex items-center gap-5">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-800" />
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-slate-600">
+              How it works
+            </span>
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-800" />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <Card key={feature.title} className="border-slate-200 bg-white shadow-sm">
-                  <CardHeader className="gap-3">
-                    <div className="inline-flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                      <Icon className="size-5" />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                num: '01',
+                Icon: TrendingUp,
+                title: 'Pool contributions',
+                desc: 'Members join emergency funds and contribute any amount via Interledger Open Payments — cross-border, cross-currency.',
+                accent: 'text-emerald-400',
+                border: 'hover:border-emerald-800/50',
+                bg: 'bg-emerald-500/[0.06]',
+              },
+              {
+                num: '02',
+                Icon: Globe,
+                title: 'Disaster detected',
+                desc: 'Live feeds from USGS and NWS. When magnitude or severity crosses your threshold, the fund is flagged instantly.',
+                accent: 'text-amber-400',
+                border: 'hover:border-amber-800/50',
+                bg: 'bg-amber-500/[0.06]',
+              },
+              {
+                num: '03',
+                Icon: Zap,
+                title: 'Instant payout',
+                desc: 'Open Payments releases funds to every member or a designated org — in seconds, traceable on-chain.',
+                accent: 'text-sky-400',
+                border: 'hover:border-sky-800/50',
+                bg: 'bg-sky-500/[0.06]',
+              },
+            ].map((step) => (
+              <div
+                key={step.num}
+                className={`group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50 p-6 transition-all duration-300 ${step.border} hover:bg-slate-900/80`}
+              >
+                <div className={`absolute -right-6 -top-6 h-24 w-24 rounded-full ${step.bg} blur-2xl transition-all duration-500 group-hover:scale-150`} />
+                <div className="relative">
+                  <div className="mb-5 flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-slate-700">{step.num}</span>
+                    <div className={`rounded-lg bg-slate-800 p-2 ${step.accent} transition-transform duration-300 group-hover:scale-110`}>
+                      <step.Icon className="h-4 w-4" />
                     </div>
-                    <CardTitle className="text-base">{feature.title}</CardTitle>
-                    <CardDescription className="leading-relaxed">{feature.description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              );
-            })}
+                  </div>
+                  <h3 className={`mb-2.5 text-base font-semibold tracking-tight ${step.accent}`}>
+                    {step.title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-slate-500">{step.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
-        <section className="border-y border-slate-200/80 bg-white">
-          <div className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:px-8">
-            <Card className="border-slate-200 bg-slate-50 shadow-none">
-              <CardHeader className="gap-2">
-                <CardTitle className="text-lg">Recent platform activity</CardTitle>
-                <CardDescription>Illustrative updates from ongoing operations.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pb-6">
-                {recentUpdates.map((update) => (
-                  <div key={update.title} className="rounded-lg border border-slate-200 bg-white px-3 py-3">
-                    <p className="text-sm font-semibold text-slate-800">{update.title}</p>
-                    <p className="mt-1 text-sm text-slate-600">{update.detail}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 bg-slate-900 text-slate-100 shadow-none">
-              <CardHeader className="gap-2">
-                <CardTitle className="text-lg text-white">Trust and impact posture</CardTitle>
-                <CardDescription className="text-slate-300">
-                  Operational discipline that stakeholders can evaluate clearly.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pb-6">
-                {[
-                  "Documented funding movement for each payout cycle",
-                  "Clear onboarding rules for recipient wallets",
-                  "Traceable account and transaction records",
-                ].map((line) => (
-                  <div key={line} className="flex items-start gap-2 text-sm text-slate-200">
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-300" />
-                    <p>{line}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-8 shadow-sm sm:px-8">
-            <h3 className="text-2xl font-semibold tracking-tight text-slate-900">Ready to operate with confidence?</h3>
-            <p className="mt-2 max-w-3xl text-sm text-slate-600 sm:text-base">
-              Move from static fundraising pages to a platform designed for operational readiness and transparent relief
-              finance.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Button asChild className="h-11 rounded-xl px-5">
-                <Link to={primaryAction.to}>{primaryAction.label}</Link>
-              </Button>
-              {!user && (
-                <Button asChild variant="outline" className="h-11 rounded-xl px-5">
-                  <Link to="/login">Log in to existing account</Link>
-                </Button>
-              )}
+        {/* Bottom CTA strip */}
+        <section className="border-t border-slate-800/60">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8">
+            <div>
+              <p className="text-sm font-semibold text-white">Ready to protect your community?</p>
+              <p className="mt-0.5 text-xs text-slate-500">Create a fund in under 2 minutes.</p>
             </div>
+            <Link
+              to="/register"
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-emerald-500"
+            >
+              Create a fund <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         </section>
-      </main>
 
-      <SiteFooter />
+        <footer className="border-t border-slate-800/40 px-6 py-6">
+          <div className="mx-auto flex max-w-6xl items-center justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-700">
+              kitten finance
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-slate-700">
+              Powered by Interledger
+            </span>
+          </div>
+        </footer>
+      </div>
     </div>
-  );
+  )
 }

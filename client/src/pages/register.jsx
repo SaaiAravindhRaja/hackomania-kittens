@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Loader2, Wallet } from "lucide-react";
 
 import AuthShell from "@/components/auth-shell";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Form, FormField, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { getStoredUser } from "@/lib/auth-session";
 
 const API_BASE = "/api";
@@ -18,6 +14,22 @@ const walletPattern = /^\$[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/[a-zA-Z0-9._~-]+$/;
 function parseJsonSafe(response) {
   return response.json().catch(() => null);
 }
+
+function Field({ label, hint, error, children }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium uppercase tracking-[0.1em] text-slate-400">
+        {label}
+      </label>
+      {children}
+      {hint && !error && <p className="text-[11px] text-slate-600">{hint}</p>}
+      <p className="min-h-[16px] text-xs text-red-400">{error || ""}</p>
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full rounded-xl border border-slate-700/80 bg-slate-800/50 px-4 py-3 text-sm text-white placeholder-slate-600 transition-colors focus:border-emerald-500/70 focus:bg-slate-800 focus:outline-none";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -31,7 +43,7 @@ export default function Register() {
     confirmPassword: "",
   });
   const [errors, setErrors] = useState({});
-  const [status, setStatus] = useState(null);
+  const [globalError, setGlobalError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -42,82 +54,38 @@ export default function Register() {
   }, [navigate]);
 
   const validate = () => {
-    const nextErrors = {};
-
-    if (!values.name.trim()) {
-      nextErrors.name = "Name is required.";
-    } else if (values.name.trim().length < 2) {
-      nextErrors.name = "Name must be at least 2 characters.";
-    }
-
-    if (!values.email.trim()) {
-      nextErrors.email = "Email is required.";
-    } else if (!emailPattern.test(values.email.trim())) {
-      nextErrors.email = "Enter a valid email address.";
-    }
-
-    if (!values.country.trim()) {
-      nextErrors.country = "Country is required.";
-    }
-
-    if (!values.postalcode.trim()) {
-      nextErrors.postalcode = "Postal code is required.";
-    } else if (!postalCodePattern.test(values.postalcode.trim())) {
-      nextErrors.postalcode = "Enter a valid postal code.";
-    }
-
-    if (!values.walletAddress.trim()) {
-      nextErrors.walletAddress = "Wallet address is required.";
-    } else if (!walletPattern.test(values.walletAddress.trim())) {
-      nextErrors.walletAddress = "Enter a valid Interledger wallet address (e.g. $ilp.interledger-test.dev/username).";
-    }
-
-    if (!values.password) {
-      nextErrors.password = "Password is required.";
-    } else if (!passwordPattern.test(values.password)) {
-      nextErrors.password = "Use at least 8 characters and include one number.";
-    }
-
-    if (!values.confirmPassword) {
-      nextErrors.confirmPassword = "Please confirm your password.";
-    } else if (values.password !== values.confirmPassword) {
-      nextErrors.confirmPassword = "Passwords do not match.";
-    }
-
-    return nextErrors;
-  };
-
-  const clearFieldError = (name) => {
-    setErrors((current) => {
-      if (!current[name]) return current;
-      const next = { ...current };
-      delete next[name];
-      return next;
-    });
+    const e = {};
+    if (!values.name.trim()) e.name = "Name is required.";
+    else if (values.name.trim().length < 2) e.name = "At least 2 characters.";
+    if (!values.email.trim()) e.email = "Email is required.";
+    else if (!emailPattern.test(values.email.trim())) e.email = "Enter a valid email.";
+    if (!values.country.trim()) e.country = "Country is required.";
+    if (!values.postalcode.trim()) e.postalcode = "Postal code is required.";
+    else if (!postalCodePattern.test(values.postalcode.trim())) e.postalcode = "Enter a valid postal code.";
+    if (!values.walletAddress.trim()) e.walletAddress = "Wallet address is required.";
+    else if (!walletPattern.test(values.walletAddress.trim())) e.walletAddress = "Must be like $ilp.interledger-test.dev/name";
+    if (!values.password) e.password = "Password is required.";
+    else if (!passwordPattern.test(values.password)) e.password = "Min 8 chars, include a number.";
+    if (!values.confirmPassword) e.confirmPassword = "Please confirm your password.";
+    else if (values.password !== values.confirmPassword) e.confirmPassword = "Passwords do not match.";
+    return e;
   };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setValues((current) => ({ ...current, [name]: value }));
-    clearFieldError(name);
-    setStatus(null);
+    setErrors((current) => { const n = { ...current }; delete n[name]; return n; });
+    setGlobalError(null);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = validate();
     setErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) {
-      setStatus({
-        variant: "destructive",
-        title: "Please review your details",
-        description: "There are validation issues in the form.",
-      });
-      return;
-    }
+    if (Object.keys(nextErrors).length > 0) return;
 
     setLoading(true);
+    setGlobalError(null);
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
@@ -131,49 +99,33 @@ export default function Register() {
           walletAddress: values.walletAddress.trim(),
         }),
       });
-
       const data = await parseJsonSafe(res);
 
       if (!res.ok) {
-        const errorMessage = data?.error ?? "Something went wrong.";
-        const lowerError = errorMessage.toLowerCase();
-
-        if (res.status === 409 || lowerError.includes("already registered")) {
-          setErrors((current) => ({
-            ...current,
-            email: "An account with this email already exists.",
-          }));
-        } else if (lowerError.includes("email")) {
-          setErrors((current) => ({ ...current, email: errorMessage }));
-        } else if (lowerError.includes("password")) {
-          setErrors((current) => ({ ...current, password: errorMessage }));
-        } else if (lowerError.includes("postal")) {
-          setErrors((current) => ({ ...current, postalcode: errorMessage }));
-        } else if (lowerError.includes("wallet")) {
-          setErrors((current) => ({ ...current, walletAddress: errorMessage }));
-        } else if (lowerError.includes("country")) {
-          setErrors((current) => ({ ...current, country: errorMessage }));
-        } else if (lowerError.includes("name")) {
-          setErrors((current) => ({ ...current, name: errorMessage }));
+        const msg = data?.error ?? "Something went wrong.";
+        const lower = msg.toLowerCase();
+        if (res.status === 409 || lower.includes("already registered")) {
+          setErrors((c) => ({ ...c, email: "An account with this email already exists." }));
+        } else if (lower.includes("email")) {
+          setErrors((c) => ({ ...c, email: msg }));
+        } else if (lower.includes("password")) {
+          setErrors((c) => ({ ...c, password: msg }));
+        } else if (lower.includes("postal")) {
+          setErrors((c) => ({ ...c, postalcode: msg }));
+        } else if (lower.includes("wallet")) {
+          setErrors((c) => ({ ...c, walletAddress: msg }));
+        } else if (lower.includes("country")) {
+          setErrors((c) => ({ ...c, country: msg }));
+        } else if (lower.includes("name")) {
+          setErrors((c) => ({ ...c, name: msg }));
         }
-
-        setStatus({
-          variant: "destructive",
-          title: "Registration failed",
-          description: errorMessage,
-        });
+        setGlobalError(msg);
         return;
       }
 
-      navigate("/login", {
-        state: { registered: true, email: values.email.trim() },
-      });
-    } catch (err) {
-      setStatus({
-        variant: "destructive",
-        title: "Something went wrong",
-        description: "Could not reach the server. Please try again.",
-      });
+      navigate("/login", { state: { registered: true, email: values.email.trim() } });
+    } catch {
+      setGlobalError("Could not reach the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -182,160 +134,98 @@ export default function Register() {
   return (
     <AuthShell
       eyebrow="account onboarding"
-      title="Create your account"
-      description="Set up secure access to your finance and response operations workspace."
+      title="Join the network."
+      description="Pool resources, protect communities, pay out instantly."
       footerLabel="Already have an account?"
       footerLinkLabel="Log in"
       footerLinkTo="/login"
     >
-      {status && (
-        <Alert
-          variant={status.variant}
-          className={status.variant === "default" ? "border-slate-200 bg-slate-50 text-slate-700" : ""}
-        >
-          <AlertTitle>{status.title}</AlertTitle>
-          <AlertDescription>{status.description}</AlertDescription>
-        </Alert>
+      {globalError && (
+        <div className="rounded-xl border border-red-800/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+          {globalError}
+        </div>
       )}
 
-      <Form className="space-y-4" onSubmit={handleSubmit} noValidate>
-        <FormField>
-          <Label htmlFor="name" className="text-slate-700">
-            Full name
-          </Label>
-          <Input
-            id="name"
-            name="name"
-            autoComplete="name"
-            placeholder="Alex Morgan"
-            value={values.name}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby="register-name-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
-          />
-          <FormMessage id="register-name-error">{errors.name ?? " "}</FormMessage>
-        </FormField>
+      <form className="space-y-1" onSubmit={handleSubmit} noValidate>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Full name" error={errors.name}>
+            <input
+              id="name" name="name" autoComplete="name" placeholder="Alex Morgan"
+              value={values.name} onChange={handleChange} className={inputCls}
+            />
+          </Field>
+          <Field label="Email" error={errors.email}>
+            <input
+              id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com"
+              value={values.email} onChange={handleChange} className={inputCls}
+            />
+          </Field>
+        </div>
 
-        <FormField>
-          <Label htmlFor="email" className="text-slate-700">
-            Email
-          </Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="name@company.com"
-            value={values.email}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby="register-email-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
-          />
-          <FormMessage id="register-email-error">{errors.email ?? " "}</FormMessage>
-        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Country" error={errors.country}>
+            <input
+              id="country" name="country" autoComplete="country-name" placeholder="Singapore"
+              value={values.country} onChange={handleChange} className={inputCls}
+            />
+          </Field>
+          <Field label="Postal code" error={errors.postalcode}>
+            <input
+              id="postalcode" name="postalcode" autoComplete="postal-code" placeholder="123456"
+              value={values.postalcode} onChange={handleChange} className={inputCls}
+            />
+          </Field>
+        </div>
 
-        <FormField>
-          <Label htmlFor="country" className="text-slate-700">
-            Country
-          </Label>
-          <Input
-            id="country"
-            name="country"
-            autoComplete="country-name"
-            placeholder="Singapore"
-            value={values.country}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.country)}
-            aria-describedby="register-country-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
-          />
-          <FormMessage id="register-country-error">{errors.country ?? " "}</FormMessage>
-        </FormField>
+        <Field
+          label="Interledger wallet address"
+          hint="e.g. $ilp.interledger-test.dev/yourwallet"
+          error={errors.walletAddress}
+        >
+          <div className="relative">
+            <Wallet className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+            <input
+              id="walletAddress" name="walletAddress" autoComplete="off"
+              placeholder="$ilp.interledger-test.dev/mymoney"
+              value={values.walletAddress} onChange={handleChange}
+              className={`${inputCls} pl-10 font-mono text-xs`}
+            />
+          </div>
+        </Field>
 
-        <FormField>
-          <Label htmlFor="postalcode" className="text-slate-700">
-            Postal code
-          </Label>
-          <Input
-            id="postalcode"
-            name="postalcode"
-            autoComplete="postal-code"
-            placeholder="123456"
-            value={values.postalcode}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.postalcode)}
-            aria-describedby="register-postalcode-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
-          />
-          <FormMessage id="register-postalcode-error">{errors.postalcode ?? " "}</FormMessage>
-        </FormField>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Password" error={errors.password}>
+            <input
+              id="password" name="password" type="password" autoComplete="new-password"
+              placeholder="8+ chars, 1 number"
+              value={values.password} onChange={handleChange} className={inputCls}
+            />
+          </Field>
+          <Field label="Confirm password" error={errors.confirmPassword}>
+            <input
+              id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password"
+              placeholder="Repeat password"
+              value={values.confirmPassword} onChange={handleChange} className={inputCls}
+            />
+          </Field>
+        </div>
 
-        <FormField>
-          <Label htmlFor="walletAddress" className="text-slate-700">
-            Interledger Wallet Address
-          </Label>
-          <Input
-            id="walletAddress"
-            name="walletAddress"
-            autoComplete="off"
-            placeholder="$ilp.interledger-test.dev/username"
-            value={values.walletAddress}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.walletAddress)}
-            aria-describedby="register-wallet-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
-          />
-          <FormMessage id="register-wallet-error">{errors.walletAddress ?? " "}</FormMessage>
-        </FormField>
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-500 hover:shadow-[0_0_24px_rgba(52,211,153,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Creating account...</>
+            ) : "Create account"}
+          </button>
+        </div>
 
-        <FormField>
-          <Label htmlFor="password" className="text-slate-700">
-            Password
-          </Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="At least 8 characters"
-            value={values.password}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.password)}
-            aria-describedby="register-password-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
-          />
-          <FormMessage id="register-password-error">{errors.password ?? " "}</FormMessage>
-        </FormField>
-
-        <FormField>
-          <Label htmlFor="confirmPassword" className="text-slate-700">
-            Confirm password
-          </Label>
-          <Input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Re-enter your password"
-            value={values.confirmPassword}
-            onChange={handleChange}
-            aria-invalid={Boolean(errors.confirmPassword)}
-            aria-describedby="register-confirm-password-error"
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/80 shadow-none focus-visible:bg-white"
-          />
-          <FormMessage id="register-confirm-password-error">{errors.confirmPassword ?? " "}</FormMessage>
-        </FormField>
-
-        <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl">
-          {loading ? "Creating account..." : "Create account"}
-        </Button>
-
-        <p className="text-center text-xs text-slate-500">
-          By creating an account, you agree to your team security and access policies.
+        <p className="pt-1 text-center text-xs text-slate-700">
+          By joining, you agree to community fund terms.
         </p>
-      </Form>
+      </form>
     </AuthShell>
   );
 }

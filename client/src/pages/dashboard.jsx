@@ -4,8 +4,6 @@ import { CircleDollarSign, Clock3, ShieldCheck, Users } from "lucide-react";
 
 import SiteFooter from "@/components/site-footer";
 import SiteNavbar from "@/components/site-navbar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { clearStoredUser, getStoredUser } from "@/lib/auth-session";
 
 const stats = [
@@ -42,88 +40,102 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-[#070a0d] text-white">
       <SiteNavbar user={user} onLogout={handleLogout} />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
+        {/* Welcome header */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 px-6 py-6">
           <p className="text-xs font-semibold tracking-[0.12em] text-slate-500 uppercase">Operations dashboard</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Welcome back, {user.username ?? "User"}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            Welcome back, {user.username ?? "User"}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-400 sm:text-base">
             This workspace gives your team a clear view of pool readiness, current allocations, and operational
             throughput.
           </p>
         </section>
 
+        {/* Stats grid */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((item) => {
             const Icon = item.icon;
             return (
-              <Card key={item.label} className="border-slate-200 bg-white shadow-sm">
-                <CardContent className="flex items-start justify-between gap-4 py-5">
+              <div
+                key={item.label}
+                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs text-slate-500">{item.label}</p>
-                    <p className="mt-1 text-2xl font-semibold text-slate-900">{item.value}</p>
+                    <p className="mt-1 text-2xl font-semibold text-white">{item.value}</p>
                   </div>
-                  <div className="inline-flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                  <div className="inline-flex size-9 items-center justify-center rounded-lg bg-slate-800 text-slate-400">
                     <Icon className="size-4" />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </section>
 
+        {/* Activity + Account */}
         <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <Card className="border-slate-200 bg-white shadow-sm">
-            <CardHeader className="gap-1">
-              <CardTitle>Recent activity</CardTitle>
-              <CardDescription>Latest operational updates across allocation and verification workflows.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pb-6">
+          {/* Recent activity */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60">
+            <div className="border-b border-slate-800 px-6 py-4">
+              <h2 className="text-base font-semibold text-white">Recent activity</h2>
+              <p className="mt-0.5 text-sm text-slate-500">Latest operational updates across allocation and verification workflows.</p>
+            </div>
+            <div className="space-y-3 p-6">
               {recentActivity.map((item) => (
                 <div
                   key={item.title}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-800/40 px-4 py-3"
                 >
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{item.title}</p>
+                    <p className="text-sm font-semibold text-slate-200">{item.title}</p>
                     <p className="mt-0.5 text-xs text-slate-500">{item.time}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-slate-800">{item.amount}</p>
+                    <p className="text-sm font-semibold text-slate-200">{item.amount}</p>
                     <p className="text-xs text-slate-500">{item.status}</p>
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-            <Card className="flex h-full flex-col border-slate-200 bg-white shadow-sm">
-              <CardHeader className="gap-1">
-                <CardTitle>Account snapshot</CardTitle>
-                <CardDescription>Signed-in account details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 pb-6 text-sm text-slate-600">
-                <p>
-                  <span className="font-semibold text-slate-800">Name:</span> {user.username ?? "-"}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">Email:</span> {user.email ?? "-"}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">User ID:</span> {user.user_id ?? "-"}
-                </p>
-                <p>
-                  <span className="font-semibold text-slate-800">Wallet:</span> {user.wallet_address ?? "-"}
-                </p>
-                <div className="mt-auto pt-2">
-                  <Button asChild variant="outline" className="h-10 w-full rounded-xl">
-                    <Link to="/wallet">Manage wallet</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Account snapshot */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60">
+            <div className="border-b border-slate-800 px-6 py-4">
+              <h2 className="text-base font-semibold text-white">Account snapshot</h2>
+              <p className="mt-0.5 text-sm text-slate-500">Signed-in account details</p>
+            </div>
+            <div className="space-y-2 p-6 text-sm text-slate-400">
+              <p>
+                <span className="font-semibold text-slate-200">Name:</span> {user.username ?? "-"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-200">Email:</span> {user.email ?? "-"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-200">User ID:</span> {user.user_id ?? "-"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-200">Wallet:</span>{" "}
+                <span className="font-mono text-xs">{user.wallet_address ?? "-"}</span>
+              </p>
+              <div className="pt-2">
+                <Link
+                  to="/wallet"
+                  className="flex w-full items-center justify-center rounded-xl border border-slate-700 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/60 hover:text-white"
+                >
+                  Manage wallet
+                </Link>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
 

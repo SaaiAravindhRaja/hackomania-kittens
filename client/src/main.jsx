@@ -6,6 +6,8 @@ import './styles/globals.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
-    <App />
+    <div className="dark">
+      <App />
+    </div>
   </BrowserRouter>
 )
