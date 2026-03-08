@@ -197,13 +197,17 @@ async function getAuthenticatedClient() {
       throw new Error('FUNDMANAGER_KEY_ID and WALLET_ADDRESS_URL must be configured.')
     }
 
-    const keyPath = process.env.FUNDMANAGER_PRIVATE_KEY_PATH
-      ? path.resolve(process.env.FUNDMANAGER_PRIVATE_KEY_PATH)
-      : path.resolve(process.cwd(), 'private.key')
-    const privateKey = (await readFile(keyPath, 'utf8')).trim()
+    // Support env-var key for serverless (Vercel), fall back to file
+    let privateKey = String(process.env.FUNDMANAGER_PRIVATE_KEY_CONTENT ?? '').trim()
+    if (!privateKey) {
+      const keyPath = process.env.FUNDMANAGER_PRIVATE_KEY_PATH
+        ? path.resolve(process.env.FUNDMANAGER_PRIVATE_KEY_PATH)
+        : path.resolve(process.cwd(), 'private.key')
+      privateKey = (await readFile(keyPath, 'utf8')).trim()
+    }
 
     if (!privateKey) {
-      throw new Error(`No private key content found at ${keyPath}`)
+      throw new Error('No private key found. Set FUNDMANAGER_PRIVATE_KEY_CONTENT or provide private.key file.')
     }
 
     return createAuthenticatedClient({
