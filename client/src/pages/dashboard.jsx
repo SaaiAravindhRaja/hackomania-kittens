@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
-import { api, get } from '@/lib/api'
+import { post, get } from '@/lib/api'
 import { motion } from 'framer-motion'
 import {
   TrendingUp, ArrowUpRight, AlertTriangle, Users, Wallet,
@@ -153,7 +153,7 @@ export default function Dashboard() {
 
   const handleJoin = async (fundId) => {
     try {
-      await api('/funds/' + fundId + '/join', { method: 'POST' })
+      await post('/funds/' + fundId + '/join', { userId: user?.user_id })
       const data = await get('/funds')
       setFunds(data.funds || [])
     } catch (err) {
@@ -171,7 +171,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            Welcome back, {user?.name?.split(' ')[0]} 👋
+            Welcome back, {user?.username?.split(' ')[0]} 👋
           </h1>
           <p className="mt-0.5 text-sm text-slate-400">Community emergency fund platform</p>
         </div>

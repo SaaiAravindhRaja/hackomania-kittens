@@ -16,14 +16,7 @@ import Payouts from './pages/payouts.jsx'
 import Transactions from './pages/transactions.jsx'
 
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-emerald-400" />
-      </div>
-    )
-  }
+  const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
   return <AppShell>{children}</AppShell>
 }

@@ -9,6 +9,7 @@ import {
   logAuthEvent,
 } from '../clickhouse_auth.js'
 import { getClient } from '../clickhouse_auth.js'
+import { createFund, getAllFunds, getFund, joinFund } from '../lib/store.js'
 
 const router = Router()
 const client = getClient()
@@ -373,6 +374,56 @@ router.get('/auth/users', async (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
+})
+
+// ── Funds ──────────────────────────────────────────────────────
+router.post('/funds', (req, res) => {
+  const { name, description, targetAmount, creatorId } = req.body ?? {}
+  if (!name || !creatorId) return res.status(400).json({ error: 'name and creatorId are required' })
+  const fund = createFund({ name, description, targetAmount, creatorId })
+  res.status(201).json({ fund })
+})
+
+router.get('/funds', (req, res) => {
+  res.json({ funds: getAllFunds() })
+})
+
+router.get('/funds/:id', (req, res) => {
+  const fund = getFund(req.params.id)
+  if (!fund) return res.status(404).json({ error: 'Fund not found' })
+  res.json({ fund })
+})
+
+router.post('/funds/:id/join', (req, res) => {
+  const userId = String(req.body?.userId ?? '').trim()
+  if (!userId) return res.status(400).json({ error: 'userId is required' })
+  const fund = joinFund(req.params.id, userId)
+  if (!fund) return res.status(404).json({ error: 'Fund not found' })
+  res.json({ fund })
+})
+
+// ── Stats ──────────────────────────────────────────────────────
+router.get('/stats', (req, res) => {
+  const all = getAllFunds()
+  const totalContributed = all.reduce((s, f) => s + (f.currentAmount || 0), 0)
+  const memberIds = new Set(all.flatMap(f => f.members))
+  res.json({
+    totalContributed,
+    contributionCount: all.length,
+    totalPaidOut: 0,
+    payoutCount: 0,
+    memberCount: memberIds.size,
+    fundCount: all.length,
+  })
+})
+
+router.get('/stats/transactions', (req, res) => {
+  res.json({ transactions: [] })
+})
+
+// ── Disasters ──────────────────────────────────────────────────
+router.get('/disasters/active', (req, res) => {
+  res.json({ disasters: [] })
 })
 
 export default router

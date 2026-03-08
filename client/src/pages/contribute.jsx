@@ -33,7 +33,7 @@ export default function Contribute() {
       setError('Please enter a valid amount')
       return
     }
-    if (!user?.walletAddress) {
+    if (!user?.wallet_address) {
       setError('No wallet address found on your account.')
       return
     }
@@ -42,11 +42,18 @@ export default function Contribute() {
     setStep(1)
 
     try {
-      const data = await post('/payments/contribute/initiate', {
-        fundId,
-        amount: Number(amount),
-        senderWalletAddress: user.walletAddress,
+      const _res = await fetch('/payments/donate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountCents: Math.round(Number(amount) * 100),
+          walletAddress: user.wallet_address,
+          userId: user.user_id,
+          userEmail: user.email,
+        }),
       })
+      const data = await _res.json().catch(() => ({}))
+      if (!_res.ok) throw new Error(data.error || 'Payment initiation failed')
 
       sessionStorage.setItem('op_nonce', data.nonce)
       sessionStorage.setItem('op_fundId', fundId)
@@ -186,7 +193,7 @@ export default function Contribute() {
                     <span className="text-xs text-slate-500">Sending from:</span>
                   </div>
                   <p className="mt-1 font-mono text-xs text-slate-300">
-                    {user?.walletAddress || '(no wallet set)'}
+                    {user?.wallet_address || '(no wallet set)'}
                   </p>
                 </div>
 
