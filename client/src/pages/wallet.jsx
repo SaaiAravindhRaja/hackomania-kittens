@@ -46,7 +46,7 @@ export default function WalletPage() {
       const response = await fetch("/payments/payout-pending");
       const data = await parseJsonSafe(response);
       if (response.ok && data?.success) {
-        setPendingPayouts(data.items || []);
+        setPendingPayouts(data.items.filter(item => item.userId === user?.user_id) || []);
       }
     } catch (e) {
       console.error("Failed to fetch pending payouts", e);
@@ -263,7 +263,7 @@ export default function WalletPage() {
       }
 
       const rejectedInteractionIds = data?.rejectedInteractionIds ?? [];
-      
+
       setSelectedInteractionIds((current) => current.filter((id) => !rejectedInteractionIds.includes(id)));
       setStatus({
         variant: "default",
@@ -430,7 +430,7 @@ export default function WalletPage() {
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
               {pendingPayouts.map((item) => {
                 const isOwnPayout = item?.userId === user?.user_id || item?.recipientWalletAddress === walletAddress;
-                
+
                 // Hide payouts that belong to other recipients
                 if (!isOwnPayout) return null;
 
@@ -440,11 +440,10 @@ export default function WalletPage() {
                     key={item.interactionId}
                     type="button"
                     onClick={() => toggleInteractionSelection(item.interactionId)}
-                    className={`flex w-full cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors ${
-                      checked 
-                        ? 'border-indigo-600 bg-indigo-50/50' 
-                        : 'border-slate-200 bg-slate-50 hover:border-indigo-200 hover:bg-slate-100'
-                    }`}
+                    className={`flex w-full cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors ${checked
+                      ? 'border-indigo-600 bg-indigo-50/50'
+                      : 'border-slate-200 bg-slate-50 hover:border-indigo-200 hover:bg-slate-100'
+                      }`}
                   >
                     <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'}`}>
                       {checked && (
